@@ -2,7 +2,10 @@
 *.log
 
 # 忽略虚拟环境
-venv/venv.zip
+venv/*
+
+# 但不忽略 startvenv.md 文件
+!venv/startvenv.md
 
 # 忽略加载的配置文件
 配置文件.json
@@ -12,5 +15,11 @@ README.md
 
 # 忽略LICENSE
 LICENSE
+
+# 忽略pycache
+__pycache__/
+
+# 忽略vscode自动生成的qrc路径
+res_rc.py
 
 
