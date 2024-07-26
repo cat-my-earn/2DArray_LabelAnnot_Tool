@@ -1779,11 +1779,10 @@
                     imageSmoothing: false
                 });
                 canvas.add(imgInstance);
-                canvas.width = colorArray_temp.length;
                 console.log("canvas.width", canvas.width);
-                canvas.height = colorArray_temp[0].length;
                 console.log("canvas.height", canvas.height);
                 canvas.renderAll();
+                // 这块不能对canvas属性做任何修改，否则会导致canvas的大小变化，这个时候坐标判定会出问题
             };
             imgElement2.src = tempCanvas2.toDataURL();
             console.log("绘制遮罩层成功");
