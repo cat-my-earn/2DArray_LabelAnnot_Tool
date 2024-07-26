@@ -1,5 +1,3 @@
-from importall import *
-
 def matpainter(data, data_type, use_polar, file_name="",dpi=100, save_path=None,edgedict=None):
     logger.info(f"正在绘制{data_type}图像")
     """
