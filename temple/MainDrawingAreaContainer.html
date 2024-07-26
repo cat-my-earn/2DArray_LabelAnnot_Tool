@@ -762,12 +762,27 @@
                     if (expectedChunks === 0) {
                         expectedChunks = total;
                     }
-                    // console.log("数据块内容:", chunk);
+
+                    // 检查索引是否在预期范围内
+                    if (index >= expectedChunks) {
+                        console.error("接收到的块索引超出预期范围:", index);
+                        return;
+                    }
+
+                    // 检查是否已经接收到该索引的数据块
+                    if (receivedChunks[index] !== undefined) {
+                        console.warn("重复接收到数据块，块索引为:", index);
+                        return;
+                    }
+
                     console.log("数据块类型:", typeof chunk);
                     console.log("数据块大小 (字符数):", chunk.length);
 
                     receivedChunks[index] = chunk;
                     totalChunks++;
+                    console.log("已接收到的数据块数量:", totalChunks);
+                    console.log("期望接收的数据块数量:", expectedChunks);
+
 
                     if (totalChunks === expectedChunks) {
                         console.log("接收到从python发来的所有数据块，数据块总数为:", totalChunks);
@@ -780,7 +795,7 @@
                             byteArray[i] = decodedData.charCodeAt(i);
                         }
                         // console.log("合并后的压缩数据:", byteArray);
-                        
+
                         try {
                             var decompressedData = pako.ungzip(byteArray, { to: 'string' });
                             if (!decompressedData) {
@@ -801,6 +816,11 @@
                         } catch (error) {
                             console.error("处理接收数据时发生错误:", error);
                         }
+
+                        // 处理完所有数据块后重置计数器和数组
+                        receivedChunks = [];
+                        totalChunks = 0;
+                        expectedChunks = 0;
                     }
                 });
 

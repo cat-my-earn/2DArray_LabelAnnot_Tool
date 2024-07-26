@@ -13,6 +13,7 @@ class FunctionsAll:
     """
     实打实的屎山代码，数据处理相关的方法全定义在这了。
     """
+
     def __init__(self, ui):
         self.Main = ui
         self.ui = ui.ui
@@ -176,14 +177,8 @@ class FunctionsAll:
         
         self.预启动加载()
 
-        # 加载上一次的数据
-        if self.展示文件函数(self.文件夹路径, self.正在使用的页数, 是否第一次启动=True) != 0:
-            self.更新文件按钮状态()
-            self.页码选择变化(self.正在使用的页数)
-            self.选择文件(self.正在使用的文件索引)
 
 
-        
 
 
     def 添加网页容器(self, num_groups=1, parent=None, parent2=None):
@@ -1161,8 +1156,17 @@ class FunctionsAll:
         if self.预处理代码 != "":
             self.ui.preprocessing_code.setText(self.预处理代码)
 
+        self.立刻显示绘图区遮罩 = False
+        self.Main.bridge.dataTransferComplete.connect(self.重新绘制遮罩)
 
-    ## 以下是一堆用来绑定按钮的函数，难倒是不难，就是又多又烦
+        # 加载上一次的数据
+        if self.展示文件函数(self.文件夹路径, self.正在使用的页数, 是否第一次启动=True) != 0:
+            self.更新文件按钮状态()
+            self.页码选择变化(self.正在使用的页数)
+            self.选择文件(self.正在使用的文件索引)
+
+
+    ## 以下是一堆用来绑定按钮的函数
 
     
     def 打开文件夹函数(self):
@@ -1351,11 +1355,16 @@ class FunctionsAll:
     
     def 显示遮罩函数(self):
         # 让网页清空遮罩，然后将colormask数组传递给js，让js重新绘制遮罩，直接对painter对象跑js代码
-        self.ui.painter.page().runJavaScript("clearCanvasCompletely(canvas);")# 清空遮罩
-        logger.info("显示遮罩时候的发送")
-        self.Main.bridge.requestMuskArrayFromPython()#向js发送颜色数组
-        time.sleep(0.1)
-        self.ui.painter.page().runJavaScript("drawColorArrayOnCanvas(maskArray_color);")# 重新绘制遮罩
+        self.ui.painter.page().runJavaScript("clearCanvasCompletely(canvas);")  # 清空遮罩
+        self.Main.bridge.requestMuskArrayFromPython()  # 向js发送颜色数组
+        self.立刻显示绘图区遮罩 = True
+
+
+    # 定义一个内部函数来处理重新绘制遮罩
+    def 重新绘制遮罩(self):
+        if self.立刻显示绘图区遮罩:
+            self.ui.painter.page().runJavaScript("drawColorArrayOnCanvas(maskArray_color);")  # 重新绘制遮罩
+            self.立刻显示绘图区遮罩 = False
     
     def 消除遮罩函数(self):
         # 先将遮罩数据传递回主函数，再让网页清空遮罩，直接对painter对象跑js代码

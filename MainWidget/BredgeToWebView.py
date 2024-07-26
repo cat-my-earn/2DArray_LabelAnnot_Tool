@@ -23,6 +23,7 @@ class Bridge(QObject):
     sendCanvasPositionToJS = Signal(list)
     sendChunkToJS = Signal(str, int, int)  # 发送数据块信号
     sendBase64ToJS = Signal(str)
+    dataTransferComplete = Signal()  # 数据传输完成信号
 
     def __init__(self, ui):
         super().__init__()
@@ -192,7 +193,6 @@ class Bridge(QObject):
     # 向主painter传递背景图片
     @Slot()
     def requestBase64ImageFromPython(self, base64_image_data):
-        logger.debug(f"向painter发送背景图片")
         # 向 JavaScript 发送 base64 编码的图像数据
         self.sendBase64ToJS.emit(base64_image_data)
 
@@ -207,32 +207,25 @@ class Bridge(QObject):
     @Slot()
     def requestMuskArrayFromPython(self):
         logger.info("向painter发送遮罩数组")  
-    
+            
         颜色遮罩数组 = self.数组输入输出之前的预处理(self.ui.颜色遮罩数组).tolist()
         nan颜色数组 = self.数组输入输出之前的预处理(self.ui.nan颜色数组).tolist()
 
         data = [颜色遮罩数组, nan颜色数组]
         data_str = json.dumps(data)
         compressed_data = gzip.compress(data_str.encode('utf-8'))
-        
+
         chunk_size = 1024 * 8192  # 8 MB
         total_chunks = (len(compressed_data) + chunk_size - 1) // chunk_size
         logger.info(f"数据压缩后大小为 {len(compressed_data)} 字节")
 
-        def send_chunk(i, chunk):
+        for i in range(total_chunks):
+            chunk = compressed_data[i * chunk_size:(i + 1) * chunk_size]
             encoded_chunk = base64.b64encode(chunk).decode('utf-8')  # 将字节数据转换为base64字符串
             logger.info(f"正在发送 {i + 1} 个数据块，总数据块为 {total_chunks}")
             self.sendChunkToJS.emit(encoded_chunk, i, total_chunks)  # 发送base64字符串数据块
-
-        threads = []
-        for i in range(total_chunks):
-            chunk = compressed_data[i * chunk_size:(i + 1) * chunk_size]
-            thread = threading.Thread(target=send_chunk, args=(i, chunk))
-            threads.append(thread)
-            thread.start()
-
-        for thread in threads:
-            thread.join()
+        
+        self.dataTransferComplete.emit()
 
     def 数组输入输出之前的预处理(self, ori_array, 是否发送=True):
         """
