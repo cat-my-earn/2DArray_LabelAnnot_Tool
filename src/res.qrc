@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/src">
+        <file alias="fabric">src/fabric.js</file>
+        <file alias="pako">src/pako.js</file>
+        <file alias="font_awesome">src/font_awesome.css</file>
+        <file alias="WeatherIconMoon">src/WeatherIconMoon.txt</file>
+        <file alias="WeatherIconSun">src/WeatherIconSun.txt</file>
+        <file alias="WeatherIconSnowy">src/WeatherIconSnowy.txt</file>
+        <file alias="WeatherIconThunderstorm">src/WeatherIconThunderstorm.txt</file>
+        <file alias="base64pictemp">src/base64pictemp.txt</file>
+    </qresource>
+    <qresource prefix="/temple">
+        <file alias="painter">temple/MainDrawingAreaContainer.html</file>
+        <file alias="mask">temple/ReferenceImageContainer.html</file>
+    </qresource>
+</RCC>

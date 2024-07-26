@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>绘制图像</title>
+    <script src="qrc:///src/fabric"></script>
+    <script type="text/javascript" src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <script type="text/javascript">
+        var bridge;
+        var flag = 2; // 画布绘制标志位，如果=1说明是第一次绘制，否则是更新绘制
+        var CalibrationFlagPosition = false;
+
+        
+        // 设置全局变量表示十字线的初始位置
+        var crosshairPosition = { x:100, y:100 };
+
+        var flagss = "遮罩图标志位";
+        document.addEventListener("DOMContentLoaded", function() {
+            new QWebChannel(qt.webChannelTransport, function(channel) {
+                bridge = channel.objects.bridge;
+    
+                // 监听从Python发送的列表
+                bridge.sendListToJS.connect(function(list) {
+                    //console.log("接收python的数组:", list);
+                    if (typeof list[0] === 'number' ) {
+                        updateCrosshairPosition(list);
+                    }
+                    if (typeof list[0] === 'string' && list[0].startsWith('十字标注线' )&& flagss === "已开启遮罩图") {
+                        setBackgroundImage(list[1], canvas);
+                    }
+                    // 处理接收到的列表...
+                });
+
+                // 监听从Python发送的画布位置列表
+                bridge.sendCanvasPositionToJS.connect(function(list) {
+                    console.log("接收python的画布位置数组:", list);
+                    //console.log("接收python的画布位置数组:", list);
+                    if (flagss === "已开启遮罩图") {
+                        console.log("mask容器位置调整参数:", list[0], list[5], list[6]);
+                        adjustCanvas(list[0], list[5], list[6]);
+                    }else{
+                        zoomnumber = list[0] * ((list[1] / picwidth) + (list[2] / picwidth) / 2);
+                        console.log("参考图容器位置调整参数:", zoomnumber, list[3], list[4]);
+                        adjustCanvas(zoomnumber, list[3], list[4]);
+                    }
+                    
+                });
+
+
+
+                // 请求Python发送列表
+                // bridge.requestListFromPython();
+            });
+        });
+        function sendCorrectionCoordinatesToPython(x, y) {
+            if (bridge) {
+                // 将坐标封装成列表
+                var coordinates = [x, y];
+                // 使用bridge对象发送坐标到Python
+                bridge.sendCoordinatesToPython(coordinates);
+            } else {
+                console.error("Bridge is not initialized.");
+            }
+        }
+
+
+    </script>
+    <style>
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* 防止滚动条出现 */
+            display: flex; /* 使用Flexbox布局 */
+            justify-content: center; /* 水平居中 */
+            align-items: center; /* 垂直居中 */
+            position: relative; /* 设置为相对定位，作为后代绝对定位元素的参考 */
+        }
+        
+        #crosshair-all {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* 允许鼠标事件穿透，以便可以与下面的canvas互动 */
+        }
+        
+        #crosshair-h, #crosshair-v {
+            position: absolute;
+            background-color: black;
+        }
+        
+        #crosshair-h {
+            left: 0;
+            right: 0;
+            height: 1px; /* 十字线的粗细 */
+            top: 50%; /* 水平线位于垂直中间 */
+        }
+        
+        #crosshair-v {
+            top: 0;
+            bottom: 0;
+            width: 1px; /* 十字线的粗细 */
+            left: 50%; /* 垂直线位于水平中间 */
+        }
+
+        .night-mode {
+            background-color: #000000;
+            color: #e0e0e0;
+        }
+    </style>
+    </head>
+    <body>
+        <canvas id="c"></canvas>
+        <div id="crosshair-all">
+            <div id="crosshair-h"></div>
+            <div id="crosshair-v"></div>
+        </div>
+    </body>
+    <script>
+        var Nightmode = false; // 默认不是夜间模式
+
+        // 初始化fabric画布
+        var canvas = new fabric.Canvas('c', {
+            imageSmoothingEnabled: false // 将像素点平滑关掉
+            });
+
+        // 全局变量，用于存储鼠标的最后位置
+        var lastMouseX = 0;
+        var lastMouseY = 0;
+        var picwidth = 0;
+        var picheight = 0;
+
+
+        // 按照画布上的点和缩放参数移动画布的函数
+        function adjustCanvas(zoom, canvasCenterX, canvasCenterY) {
+
+            // 设置画布的缩放级别
+            canvas.setZoom(1);
+
+            canvas.absolutePan(new fabric.Point(0, 0));
+
+            //实际偏移的位置
+            const viewportWidth2 = parseInt(document.getElementById('c').style.width);//这个才是实际显示的画布大小，非style是当初设定的直接属性值
+            const viewportHeight2 = parseInt(document.getElementById('c').style.height);//这个才是实际显示的画布大小
+            console.log(viewportWidth2/2,viewportHeight2/2,canvasCenterX, canvasCenterY)
+
+            // 计算视窗中心点相对于画布原点的偏移量
+            const offsetX = canvasCenterX - viewportWidth2 / 2;
+            const offsetY = canvasCenterY - viewportHeight2 / 2;
+            console.log(offsetX,offsetY)
+
+            // 使用absolutePan方法来移动画布到指定的中心位置
+            canvas.absolutePan(new fabric.Point(offsetX, offsetY));
+
+
+            // 使用zoomToPoint方法，以移动后的视窗中心作为缩放的中心，tmd这个方法的参数是相对于视窗的位置的点，而不是画布位置的点……
+            canvas.zoomToPoint(new fabric.Point(viewportWidth2 / 2, viewportHeight2 / 2), zoom);
+
+            // 请求画布重新渲染
+            canvas.requestRenderAll();
+        }
+
+
+
+        // 你的图片的Base64编码
+        var base64Image = 'base64数据替换占位符';
+
+        function setBackgroundImage(base64Image, canvas) {
+            fabric.Image.fromURL(base64Image, function(oImg) {
+                // 根据加载的图片大小调整画布大小
+                canvas.setWidth(oImg.width);
+                canvas.setHeight(oImg.height);
+
+                // 设置全局变量——图像宽高
+                picwidth = oImg.width;//设置全局变量为图片的宽度
+                picheight = oImg.height;//设置全局变量为图片的高度
+
+                crosshairPosition.x = oImg.width / 2;
+                crosshairPosition.y = oImg.height / 2;
+
+                var pageWidth = window.innerWidth-50;
+                var pageHeight = window.innerHeight-50;
+
+                if (flag !== 0){ 
+                    // 检查图像的宽度和高度是否小于页面的宽度和高度（都减去了200）
+                    if (oImg.width < pageWidth && oImg.height < pageHeight) {
+                        // 如果图像的宽度和高度都小于页面的宽度和高度，直接使用图像的尺寸
+                        canvas.setWidth(oImg.width);
+                        canvas.setHeight(oImg.height);
+                    } else {
+                        // 如果图像的任一尺寸大于页面的对应尺寸，使用页面的尺寸
+                        canvas.setWidth(pageWidth);
+                        canvas.setHeight(pageHeight);
+                        // 计算缩放比例，使得画布适合窗口大小
+                        var scaleX = pageWidth / oImg.width;
+                        var scaleY = pageHeight / oImg.height;
+                        var scale = Math.min(scaleX, scaleY);
+
+                        // 应用缩放到画布
+                        canvas.setZoom(scale);
+
+                        // 调整视口，使画布居中
+                        var viewport = canvas.viewportTransform;
+                        viewport[4] = (pageWidth - oImg.width * scale) / 2;
+                        viewport[5] = (pageHeight - oImg.height * scale) / 2;
+
+                        // 应用视口变换
+                        canvas.setViewportTransform(viewport);
+                    }
+                    flag = flag - 1;
+                }
+
+
+
+
+                // 关闭图片的抗锯齿
+                oImg.imageSmoothing = false;
+
+                // 设置背景图片并调整其大小以适应画布
+                canvas.setBackgroundImage(oImg, canvas.renderAll.bind(canvas), {
+                    scaleX: 1,
+                    scaleY: 1,
+                    imageSmoothingEnabled: false
+                });
+                console.log("视窗大小为",window.innerWidth,window.innerHeight,"画布大小为",document.getElementById('c').width,document.getElementById('c').height,"画布样式大小为",document.getElementById('c').style.width,document.getElementById('c').style.height);
+            });
+        }
+
+        function drawCrosshair(position) {
+            //console.log("开始绘制十字线", position);
+            var canvasElement = document.getElementById('c');
+            var rect = canvasElement.getBoundingClientRect(); // 获取画布相对于视口的位置
+
+            // 假设canvas是你的fabric.Canvas实例
+            var zoom = canvas.getZoom();
+            var viewportTransform = canvas.viewportTransform;
+            var offsetX = viewportTransform[4];
+            var offsetY = viewportTransform[5];
+
+            // 调整position以考虑缩放和偏移
+            var adjustedX = (position.x * zoom) + offsetX;
+            var adjustedY = (position.y * zoom) + offsetY;
+
+            // 计算画布上的点在网页上的绝对位置
+            var absoluteX = rect.left + adjustedX;
+            var absoluteY = rect.top + adjustedY;
+
+            var crosshairH = document.getElementById('crosshair-h');
+            var crosshairV = document.getElementById('crosshair-v');
+            crosshairH.style.backgroundColor = 'black';
+            crosshairV.style.backgroundColor = 'black';
+
+            // 设置十字线的位置，使其以画布上的点为中心
+            crosshairH.style.top = absoluteY + 'px';
+            crosshairH.style.left = 0;
+            crosshairH.style.width = '100%';
+            crosshairH.style.height = '1px';
+
+            crosshairV.style.left = absoluteX + 'px';
+            crosshairV.style.top = 0;
+            crosshairV.style.width = '1px';
+            crosshairV.style.height = '100%';
+        }
+
+        // 示例：在画布的(100, 100)位置绘制十字线
+        // 注意：实际使用时，应根据需要调用此函数
+        function updateCrosshairPosition(positionArray) {
+            // 更新全局变量crosshairPosition的值
+            crosshairPosition = { x: positionArray[0], y: positionArray[1] };
+            //console.log("更新的crosshairPosition:", crosshairPosition);
+
+            // 使用更新后的crosshairPosition调用drawCrosshair函数
+            drawCrosshair(crosshairPosition);
+        }
+
+        // updateCrosshairPosition([100, 100]);
+
+        // 这个函数的作用是启用画布的放大缩小功能
+        function enableZoom() {
+            // 监听画布上的鼠标滚轮事件
+            canvas.on('mouse:wheel', function(opt) {
+            var delta = opt.e.deltaY; // 获取鼠标滚轮的滚动值，向上滚动为负值，向下滚动为正值
+
+            var zoom = canvas.getZoom(); // 获取当前画布的缩放比例
+            zoom *= 0.999 ** delta; // 根据滚动值调整缩放比例，滚轮每滚动一单位，缩放比例变化0.1%
+
+            if (zoom > 20) zoom = 20; // 限制最大缩放比例为20倍，防止过度放大
+            if (zoom < 0.01) zoom = 0.01; // 限制最小缩放比例为0.01倍，防止过度缩小
+
+            // 应用新的缩放比例，以鼠标当前位置为中心进行缩放
+            canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+
+            // 禁用图像平滑处理，保持像素点清晰
+            canvas.imageSmoothingEnabled = false;
+
+            opt.e.preventDefault(); // 阻止默认的滚轮滚动行为，避免滚动画布时页面也跟着滚动
+            opt.e.stopPropagation(); // 阻止事件冒泡，避免滚轮事件影响到其他元素
+            drawCrosshair(crosshairPosition); // 重新绘制十字线
+            });
+        }
+
+
+
+
+
+
+
+
+
+
+        // 这个函数的作用是启用画布的拖动功能并在拖动时禁用绘制功能
+        function enableDraggingAndDisableDrawing() {
+            var isDragging = false; // 定义一个标志，用于判断用户是否正在拖动画布
+            var isMouseDown = false; // 定义一个标志，用于判断鼠标是否按下
+            var lastPosX = 0; // 记录上一次鼠标的X位置
+            var lastPosY = 0; // 记录上一次鼠标的Y位置
+
+            // 监听键盘按下事件
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Alt') { // 如果按下的是Alt键
+                    e.preventDefault(); // 防止默认行为
+                    canvas.isDrawingMode = false; // 禁用画布的绘制模式
+                    isDragging = true; // 启动拖动模式
+                }
+            });
+
+            // 监听鼠标按下事件
+            canvas.on('mouse:down', function(opt) {
+                var e = opt.e;
+                isMouseDown = true; // 设置鼠标按下标志为true
+                lastPosX = e.clientX;
+                lastPosY = e.clientY;
+            });
+
+            // 监听鼠标移动事件
+            canvas.on('mouse:move', function(opt) {
+                if (document.hasFocus() === false) {//鼠标在网页上移动的时候。如果窗口没有焦点，则聚焦窗口
+                    window.focus();}
+                var pointer = canvas.getPointer(opt.e);
+                lastMouseX = pointer.x;
+                lastMouseY = pointer.y;
+                if (isDragging && isMouseDown) { // 只有当处于拖动模式并且鼠标按下时才处理拖动
+                    var e = opt.e;
+                    var vpt = canvas.viewportTransform;
+                    vpt[4] += e.clientX - lastPosX;
+                    vpt[5] += e.clientY - lastPosY;
+                    canvas.requestRenderAll();
+                    lastPosX = e.clientX;
+                    lastPosY = e.clientY;
+                }
+            });
+
+            // 监听鼠标释放事件
+            canvas.on('mouse:up', function(opt) {
+                isMouseDown = false; // 设置鼠标按下标志为false
+            });
+
+            // 监听键盘松开事件
+            document.addEventListener('keyup', function(e) {
+                if (e.key === 'Alt') { // 如果松开的是Alt键
+                    canvas.isDrawingMode = false; // 恢复画布的绘制模式
+                    isDragging = false; // 结束拖动模式
+                    drawCrosshair(crosshairPosition); // 重新绘制十字线
+                }
+            });
+        }
+
+
+        // 监听键盘按下事件
+        document.addEventListener('keydown', function(event) {
+            if (event.keyCode === 32 && CalibrationFlagPosition === true) { // 检查是否按下了空格键
+                event.preventDefault(); // 防止空格键的默认行为（例如滚动页面）
+                // 使用鼠标的最后位置调用函数
+                sendCorrectionCoordinatesToPython(lastMouseX, lastMouseY);
+            }
+        });
+
+
+        function toggleNightMode(forceNightMode = null) {
+            const isNightMode = document.body.classList.contains('night-mode');
+            if (forceNightMode !== null) {
+                if (forceNightMode && !isNightMode) {
+                    document.documentElement.classList.add('night-mode');
+                    document.body.classList.add('night-mode');
+                } else if (!forceNightMode && isNightMode) {
+                    document.documentElement.classList.remove('night-mode');
+                    document.body.classList.remove('night-mode');
+                }
+            } else {
+                document.documentElement.classList.toggle('night-mode');
+                document.body.classList.toggle('night-mode');
+            }
+        }
+            
+        
+        toggleNightMode(Nightmode);
+        
+
+        enableDraggingAndDisableDrawing();
+        enableZoom();
+        setBackgroundImage(base64Image, canvas)
+    </script>
+</html>

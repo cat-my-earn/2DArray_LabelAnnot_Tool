@@ -1,0 +1,2642 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>绘制图像</title>
+    <script src="qrc:///src/fabric"></script>
+    <script src="qrc:///src/pako"></script>
+    <link id = "fontAwesomeLink" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script type="text/javascript" src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <script>
+    /**
+     * 
+     * 一个javascript填色小工具
+     * 以h5的canvas为载体
+     * 该代码由其作者applelee公开
+     * 任何人或机构可以随意使用，但任何使用该代码产生的后果，作者不负任何责任
+     * 
+     * 版本2020-08-24
+     * 
+     * 后来者又浅浅改了以下大佬的源代码
+     * 版本20224-07-17
+    */
+    
+    (function (win, doc) {
+        const w = win || window
+        const d = doc || document
+        
+        // 可配置属性
+        let options = {
+            // 画布尺寸
+            canvasSize: [600, 800],
+            // 填充色
+            fillColor: [100, 100, 100, 255],
+            // 被填充色
+            coverFillColor: [255, 255, 255, 255],
+            // 禁止填充色
+            boundaryColor: [0, 0, 0, 255],
+            // 颜色匹配容差值 1-200
+            tolerance: 100,
+            // 遇到边界时候的跳跃像素，大片不密实的填色区域适用，默认为1，就是检测周围1像素的像素点内有没有符合条件的，有的话加入填充栈，注意太大的话会导致计算时间太长
+            skipDistance: 1,
+            // 是否禁止填充边界色
+            isBanBoundaryColor: true,
+            // 是否自动更新被填充色
+            isAutoChangeCoverFillColor: true,
+            // 不显示离屏画布，不能直接用点击触发事件，需要手动调用函数，然后返回对应的点击坐标
+            offscreenCanvasVisible: true,
+            // 是否使用fabric画布对象，fabric画布的操作逻辑和正常的canvas不大一样，需要特殊处理
+            isFabricCanvas: false,
+            // 传递fabric画布对象
+            fabricCanvas: null,
+        }
+        
+        // 开关
+        let isTurnOn = false
+        
+        // 构造函数
+        const FastFill = function (opt = {}) {
+            options = {
+            ...options,
+            ...opt,
+            };
+        
+            if (!options.elementId) error('指向主 canvas 的 options 的 elementId 不能为空！！')
+
+            // 根据传入的 canvasId 获取主 Canvas 元素
+            const mainCanvas = document.getElementById(options.elementId);
+            const domRect = mainCanvas.getBoundingClientRect();
+
+            // 创建离屏容器 div
+            const offscreenContainer = document.createElement('div');
+            offscreenContainer.id = 'offscreenCanvasContainer';
+            offscreenContainer.style.position = 'absolute';
+            offscreenContainer.style.width = `${domRect.width}px`;
+            offscreenContainer.style.height = `${domRect.height}px`;
+            offscreenContainer.style.left = `${domRect.left}px`;
+            offscreenContainer.style.top = `${domRect.top}px`;
+            document.body.appendChild(offscreenContainer);
+
+            // 创建离屏 Canvas
+            const offscreenCanvas = document.createElement('canvas');
+            offscreenCanvas.setAttribute('willReadFrequently', 'true');
+            offscreenCanvas.width = domRect.width;
+            offscreenCanvas.height = domRect.height;
+            offscreenCanvas.style.display = 'none';
+            offscreenCanvas.id = 'offscreenCanvas';
+            offscreenContainer.appendChild(offscreenCanvas);
+
+            // 初始化 FastFill 实例
+            //this.elementId = 'offscreenCanvasContainer'; // 使用离屏容器的 ID
+            this.canvasSize = [domRect.width, domRect.height]; // 使用离屏 Canvas 的尺寸
+            this.imageURL = options.imageURL; // 图片的 URL
+
+            init(this); // 初始化 FastFill 实例
+        }
+        
+        // 工厂函数
+        FastFill.create = (opt = {}) => {
+            return new FastFill(opt)
+        }
+        
+        // 更改配置
+        FastFill.prototype.reset = function (opt = {}) {
+            this.imgData = null
+            this.elementId = opt.elementId || this.elementId
+            this.imageURL = opt.imageURL || this.imageURL
+            this.canvasSize = opt.canvasSize || this.canvasSize
+            this.fillColor = opt.fillColor || this.fillColor
+            this.coverFillColor = opt.coverFillColor || this.coverFillColor
+            this.boundaryColor = opt.boundaryColor || this.boundaryColor
+            this.isBanBoundaryColor = opt.isBanBoundaryColor || this.isBanBoundaryColor
+            this.offscreenCanvasVisible = opt.offscreenCanvasVisible || this.offscreenCanvasVisible
+            this.isFabricCanvas = opt.isFabricCanvas || this.isFabricCanvas
+            this.fabricCanvas = opt.fabricCanvas || this.fabricCanvas
+            this.tolerance = opt.tolerance && (opt.tolerance > 200 ? 200 : opt.tolerance) || this.tolerance
+            this.skipDistance = opt.skipDistance && (opt.skipDistance > 200 ? 200 : opt.skipDistance) || this.skipDistance
+        
+            if (opt.imageURL) {
+            const [x, y] = this.canvasSize
+            this.ctx.clearRect(0, 0, x, y)
+            imageHandle('图片重新加载完毕', this)
+            }
+        }
+        
+        // 重置画布
+        FastFill.prototype.resetCanvas = function () {
+            imageHandle('图片重新加载完毕', this)
+        }
+        
+        // 注册开始，如果不显示画布就不进行注册
+        FastFill.prototype.turnOn = function (cb = () => {}) {
+            if (this.isEvent) return
+            if (this.offscreenCanvasVisible) {
+            run(this)}
+        }
+        
+        // 监听填色开始
+        FastFill.prototype.startFill = function (cb = () => {}) {
+            this.startFillCB = cb
+        }
+        
+        // 关闭填色，注销事件，如果不显示画布就不进行注销
+        FastFill.prototype.turnOff = function (cb = () => {}) {
+            if (this.offscreenCanvasVisible) {
+            this.cvs.removeEventListener('click', this.clickEventHandle)}
+            this.isEvent = false
+            cb()
+        }
+        
+        // 资源加载完成
+        FastFill.prototype.loaded = function (cb = () => {}) {
+            this.loadedCB = res => cb(res)
+        }
+        
+        // 填色结果
+        FastFill.prototype.fillDone = function (success = () => {}, error = () => {}) {
+            this.successCB = () => success()
+            this.errorCB = err => error(err)
+        }
+
+        // 手动触发填色
+        FastFill.prototype.manualFill = function (x, y) {
+            console.log('手动触发填色')
+            this.fillStack = [[x, y]];
+            const bool = invalidFillDetecion([x, y], this);
+            if (!bool) return;
+            startFill(this);
+            console.log('手动填色完成')
+            ////console.log(this.filledPoints)
+            return this.filledPoints
+        }
+
+        // FastFill 类方法定义
+        FastFill.prototype.updateOffscreenCanvas = function() {
+            // 如果isFabricCanvas为true，则不执行以下操作
+            if (this.isFabricCanvas === true) {
+
+                // 创建一个虚拟 Canvas，宽高设置为主 Canvas 的宽高
+                var virtualCanvas = document.createElement('canvas');
+                virtualCanvas.width = this.canvasSize[0];
+                virtualCanvas.height = this.canvasSize[1];
+
+                // 构建一个新的 fabric.Canvas 对象，绑定虚拟 Canvas
+                var virtualFabricCanvas = new fabric.Canvas(virtualCanvas);
+
+                // 克隆背景图
+                let cloneBackgroundPromise = new Promise((resolve, reject) => {
+                    if (this.fabricCanvas.backgroundImage) {
+                        this.fabricCanvas.backgroundImage.clone(function(clonedBackground) {
+                            virtualFabricCanvas.setBackgroundImage(clonedBackground, () => {
+                                virtualFabricCanvas.renderAll();
+                                resolve();
+                            });
+                        });
+                    } else {
+                        resolve(); // 如果没有背景图，直接解决Promise
+                    }
+                });
+
+                // 克隆其他所有对象
+                let cloneObjectsPromise = Promise.all(this.fabricCanvas.getObjects().map(object => {
+                    return new Promise((resolve) => {
+                        object.clone(function(cloned) {
+                            virtualFabricCanvas.add(cloned);
+                            resolve();
+                        });
+                    });
+                }));
+
+                // 等待所有克隆操作完成
+                Promise.all([cloneBackgroundPromise, cloneObjectsPromise]).then(() => {
+                    // 调整虚拟画布的缩放比例和位置
+                    virtualFabricCanvas.setZoom(1);
+                    virtualFabricCanvas.absolutePan(new fabric.Point(0, 0));
+
+                    // 导出虚拟画布内容
+                    var dataURL = virtualFabricCanvas.toDataURL({
+                        format: 'png',
+                        quality: 1 // 设置导出质量为最高
+                    });
+
+                    // 重置 FastFill 实例
+                    this.reset({ imageURL: dataURL });
+                });
+
+                
+            } else{
+                // 清空离屏 canvas
+                this.offscreenCtx.clearRect(0, 0, this.offscreenCanvas.width, this.offscreenCanvas.height);
+
+                // 获取主 Canvas 元素
+                const fabricCanvasEl = this.mainCanvas;
+                const canvasWidth = fabricCanvasEl.width;
+                const canvasHeight = fabricCanvasEl.height;
+
+                // 将主 Canvas 上的内容绘制到离屏 canvas 上
+                this.offscreenCtx.drawImage(fabricCanvasEl, 0, 0, canvasWidth, canvasHeight);
+
+                // 生成离屏 canvas 的图像 URL
+                const offscreenDataURL = this.offscreenCanvas.toDataURL();
+
+                // 更新 FastFill 实例的 imageURL 属性
+                this.reset({ imageURL: offscreenDataURL });
+            }
+        }
+
+        FastFill.prototype.close = function() {
+            // 尝试获取离屏容器
+            const offscreenContainer = document.getElementById('offscreenCanvasContainer');
+            console.log('关闭函数被调用', offscreenContainer);
+            // 如果容器存在，则移除
+            if (offscreenContainer) {
+                offscreenContainer.remove();
+            } else {
+                console.log('未找到离屏div元素，应该已经比删除');
+            }
+        }
+
+
+        
+        const init = self => {
+            // 填充类型
+            const type = 0
+            // 是否绑定点击事件
+            self.isEvent = false
+            // 绘制数据
+            self.imgData = null
+            // 已经检测集合
+            self.solvedSet = new Set()
+            // 未检测集合
+            self.stackedSet = new Set()
+            // 可以填充的栈
+            self.fillStack = []
+            // 图片在画布中的位置与实际尺寸
+            self.imgStartX = 0
+            self.imgStartY = 0
+            self.imgDisplayWidth = 0
+            self.imgDisplayHeight = 0
+
+            self.mainCanvas = d.getElementById(options.elementId)
+            self.offscreenCanvas = d.getElementById('offscreenCanvas')
+            self.offscreenContainer = d.getElementById('offscreenCanvasContainer')
+            self.offscreenCtx = self.offscreenCanvas.getContext('2d', { willReadFrequently: true })
+        
+            // 检测方向枚举
+            self.directions = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]]
+            // 画布
+            self.cvs = d.createElement('canvas');
+            ////console.log(self.cvs);
+            // canvas上下文
+            self.ctx = self.cvs.getContext('2d', { willReadFrequently: true }); // 设置 willReadFrequently 为 true
+            // 递归计数器
+            self.count = 0
+            // 最大计数值(防止内存溢出)
+            self.maxCount = 2000
+        
+            // 点击事件回调
+            self.clickEventHandle = () => {}
+            // 开始填充回调
+            self.startFillCB = () => {}
+            // 资源加载回调
+            self.loadedCB = () => {}
+            // 填充完成回调
+            self.successCB = () => {}
+            // 填充异常回调
+            self.errorCB = () => {}
+        
+            self.elementId = options.elementId
+            self.imageURL = options.imageURL
+            self.canvasSize = options.canvasSize
+            self.fillColor = options.fillColor
+            self.coverFillColor = options.coverFillColor
+            self.boundaryColor = options.boundaryColor
+            self.isBanBoundaryColor = options.isBanBoundaryColor
+            self.isAutoChangeCoverFillColor = options.isAutoChangeCoverFillColor
+            self.offscreenCanvasVisible = options.offscreenCanvasVisible
+            self.isFabricCanvas = options.isFabricCanvas
+            self.fabricCanvas = options.fabricCanvas
+            self.tolerance = options.tolerance > 200 ? 200 : options.tolerance
+            self.skipDistance = options.skipDistance > 200 ? 200 : options.skipDistance
+
+            if (!self.offscreenCanvasVisible) {
+                console.log('不显示离屏画布')
+                self.offscreenContainer.style.display = 'none';
+                self.cvs.style.display = 'none';
+            }
+        
+            createScreen(self)
+            ////imageHandle(self)
+            self.updateOffscreenCanvas();
+            ////console.log(self.imageURL)
+            ////imageHandle('图片重新加载完毕', self);
+            
+        }
+        
+        const createScreen = self => {
+            const [width, height] = self.canvasSize
+            
+            if (!self.offscreenContainer) error('画布容器不存在！！')
+        
+            self.cvs.width = width
+            self.cvs.height = height
+            self.offscreenContainer.append(self.cvs)
+            }
+        // 图片加载
+        const imageHandle = function () {
+            console.log("图片加载函数被调用")
+            const len = arguments.length
+            const msg = typeof arguments[0] !== 'string' ? '' : arguments[0]
+            const self = arguments[len - 1]
+            const image = new Image()
+            // 设置跨域属性
+            image.crossOrigin = 'anonymous'
+    
+            image.src = self.imageURL
+    
+            image.onerror = function (e) {
+                error('图片加载异常', e.type)
+            }
+    
+            // 定义图片加载成功时的回调函数
+            image.onload = function (e) {
+                // 从self对象中获取画布的宽度和高度
+                const [width, height] = self.canvasSize
+                // 打印日志信息，表示图片已经加载完毕
+                console.log('图片加载完毕')
+                // 从事件对象的path属性中获取图片的实际宽度和高度
+                // 注意：这里的e.path可能在某些浏览器中不可用，建议使用this.width和this.height作为替代
+                const imgWidth = this.width
+                const imgHeight = this.height
+                console.log('图片的实际宽度和高度分别为', imgWidth, imgHeight)
+    
+                // 将画布的宽高设置为图片的宽高
+                self.ctx.canvas.width = imgWidth
+                self.ctx.canvas.height = imgHeight
+    
+                // 计算画布的宽高比
+                const cvsProportion = width / height
+                // 计算图片的宽高比
+                const imgProportion = imgWidth / imgHeight
+
+                console.log('画布的宽高比为', cvsProportion)
+                console.log('图片的宽高比为', imgProportion)
+    
+                // 根据宽高比调整图片的显示宽度和高度，以适应画布大小
+                self.imgDisplayWidth = cvsProportion >= imgProportion ? imgWidth * height / imgHeight : width
+                self.imgDisplayHeight = cvsProportion >= imgProportion ? height : width * imgHeight / imgWidth
+                // 计算图片在画布上的起始x坐标
+                self.imgStartX = cvsProportion >= imgProportion ? (width / 2) - (self.imgDisplayWidth / 2) : 0
+                // 计算图片在画布上的起始y坐标
+                self.imgStartY = cvsProportion >= imgProportion ? 0 : (height / 2) - (self.imgDisplayHeight / 2)
+                console.log('图片在画布上的起始坐标分别为', self.imgStartX, self.imgStartY)
+                console.log('图片在画布上的显示宽度和高度分别为', self.imgDisplayWidth, self.imgDisplayHeight)
+
+                
+                // 在画布上绘制图片
+                self.ctx.drawImage(this, 0, 0, imgWidth, imgHeight, self.imgStartX, self.imgStartY, self.imgDisplayWidth, self.imgDisplayHeight)
+    
+                // 调用加载完成后的回调函数，传入消息对象
+                self.loadedCB({ msg })
+            }
+            // console.log("图片链接为：",self.imageURL);
+        }
+
+        
+        const run = self => {
+        console.log('开始注册点击事件')
+            self.isEvent = true
+            self.clickEventHandle = clickEventHandle.bind(self)
+            self.cvs.addEventListener('click', self.clickEventHandle)
+        }
+        
+        // 点击事件处理
+        function clickEventHandle (e) {
+            console.log('点击事件触发')
+            // 填充起点矢量
+            const [x, y] = getEventPosition(e)
+        
+            // 填充起点入栈
+            this.fillStack = [[x, y]]
+        
+            const bool = invalidFillDetecion([x, y], this)
+            if (!bool) return
+            startFill(this)
+        }
+
+
+
+        // 无效填充检测函数定义
+        // 参数：坐标点 [x, y] 和 self 对象（通常指向当前的工作对象）
+        const invalidFillDetecion = ([x, y], self) => {
+            // 使用 canvas 的 getImageData 方法获取指定坐标点的像素颜色数据
+            const colorData = self.ctx.getImageData(x, y, 1, 1).data;
+            console.log(`坐标 (${x}, ${y}) 的颜色数据为 ${colorData}`);
+    
+            // 如果设置了自动更改覆盖填充颜色的标志，则更新 coverFillColor 属性为当前点的颜色
+            if (self.isAutoChangeCoverFillColor) {
+                self.coverFillColor = colorData;
+            }
+    
+            // 检查坐标点是否在有效的图片显示区域内
+            // 如果点的坐标超出了图片的开始坐标加上其显示宽度或高度，则认为是无效填充区域
+            if (x < self.imgStartX || y < self.imgStartY || x >= self.imgStartX + self.imgDisplayWidth || y >= self.imgStartY + self.imgDisplayHeight) {
+                console.error(`坐标 (${x}, ${y}) 超出有效填充区域。有效区域为 x: [${self.imgStartX}, ${self.imgStartX + self.imgDisplayWidth})，y: [${self.imgStartY}, ${self.imgStartY + self.imgDisplayHeight})`);
+                // 调用错误回调函数，传递错误信息
+                self.errorCB({
+                    msg: '无效填充区域',
+                });
+                return false; // 返回 false 表示检测到无效填充
+            }
+    
+            // 如果设置了禁止填充边界颜色，并且当前点的颜色与边界颜色相同，则认为是禁止填充的颜色
+            if (self.isBanBoundaryColor && isSameColor(colorData, self.boundaryColor)) {
+                console.error(`坐标 (${x}, ${y}) 的颜色与禁止填充的边界颜色相同。`);
+                // 调用错误回调函数，传递错误信息
+                self.errorCB({
+                    msg: '选中颜色为禁止填充色',
+                });
+                return false; // 返回 false 表示检测到禁止填充的颜色
+            }
+    
+            // 如果当前点的颜色不是预期的被填充颜色，则认为是错误的填充颜色
+            if (!isSameColor(colorData, self.coverFillColor)) {
+                console.error(`坐标 (${x}, ${y}) 的颜色不是预期的被填充颜色。预期颜色为 ${self.coverFillColor}，实际颜色为 ${colorData}`);
+                // 调用错误回调函数，传递错误信息
+                self.errorCB({
+                    msg: '选中颜色不是被填充的颜色',
+                });
+                return false; // 返回 false 表示检测到错误的填充颜色
+            }
+    
+            // 如果所有检查都通过，则返回 true 表示填充检测有效
+            return true;
+        }
+        
+        // 开始
+        const startFill = (self) => { // 设置默认色彩容差为 200，默认跳跃距离为 5（在方向检测是否入栈函数里使用的条约距离，完全不跳跃的话，遇到密集均匀离散的点，填色效果很差）
+        self.filledPoints = []; // 初始化存储填色点坐标的列表
+        self.startFillCB(); // 调用开始填充的回调函数
+        let counter = 0; // 初始化计数器
+        while (self.fillStack.length > 0 && counter < 1000) { // 循环，直到填充栈为空，或者计数器达到 1000 个循环，避免无限循环
+            if (counter % 10 === 0) { // 每循环十次才执行一次 console.log
+                console.log('开始循环第', counter + 1, '次');
+            }
+            drippingRecursion(self); // 调用递归填色函数
+            counter++; // 每次循环后递增计数器
+        }
+        console.log(`循环执行了 ${counter} 次。`);
+
+        ////console.log(self.stackedSet);
+        endFill(self); // 调用结束填充的函数
+        }
+
+        // 核心逻辑
+        const drippingRecursion = (self) => {
+        const [x, y] = self.fillStack.shift(); // 从填色栈中取出一个坐标点
+
+        // 入栈与出栈
+        self.solvedSet.add(`${x};${y}`); // 将当前点标记为已解决
+        self.stackedSet.delete(`${x};${y}`); // 从待处理集合中删除当前点
+
+        // 填色
+        fill([x, y], self); // 调用填色函数
+
+        // 方向检测
+        directionDetection([x, y], self); // 调用方向检测函数，检测周围点是否需要填色
+        }
+
+        // 填色
+        const fill = ([x, y], self) => {
+        const [r, g, b, a] = self.fillColor; // 获取填色的 RGBA 值
+
+        // 在填色前将坐标添加到列表中
+        self.filledPoints.push({ x: x, y: y }); // 将坐标对象加入列表
+
+        if (self.offscreenCanvasVisible) {
+        if (!self.imgData) {
+            self.ctx.rect(x, y, 1, 1); // 绘制一个 1x1 的矩形
+            self.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`; // 设置填色
+            self.ctx.fill(); // 执行填色
+            self.imgData = self.ctx.getImageData(x, y, 1, 1); // 获取该点的图像数据
+        } else {
+            self.ctx.putImageData(self.imgData, x, y); // 将图像数据放回到该点
+        }
+        }
+        }
+
+        // 方向检测
+        const directionDetection = ([x, y], self) => {
+        self.directions.forEach(([dirX, dirY]) => { // 遍历所有方向
+            let foundValidPoint = false;
+            for (let i = 1; i <= self.skipDistance; i++) {
+            const dirCoord = [x + dirX * i, y + dirY * i]; // 计算当前点在该方向上的新坐标
+            if (pushTesting(dirCoord, self)) { // 如果新坐标通过检测
+                self.fillStack.push(dirCoord); // 将新坐标入栈
+
+                if (!self.solvedSet.has(`${dirCoord[0]};${dirCoord[1]}`)) { // 如果新坐标不在已解决集合中
+                self.stackedSet.add(`${dirCoord[0]};${dirCoord[1]}`); // 将新坐标添加到待处理集合中
+                }
+                foundValidPoint = true;
+                break; // 找到一个有效点后跳出循环
+            }
+            }
+            if (!foundValidPoint) { // 如果在 skipDistance 范围内没有找到有效点
+            const dirCoord = [x + dirX * self.skipDistance, y + dirY * self.skipDistance];
+            if (pushTesting(dirCoord, self)) {
+                self.fillStack.push(dirCoord);
+                if (!self.solvedSet.has(`${dirCoord[0]};${dirCoord[1]}`)) {
+                self.stackedSet.add(`${dirCoord[0]};${dirCoord[1]}`);
+                }
+            }
+            }
+        });
+
+        if (self.fillStack.length > 0) { // 如果填色栈不为空
+            if (self.count >= self.maxCount) { // 如果递归深度达到最大值
+            self.count = 0; // 重置递归计数
+            return;
+            }
+
+            self.count += 1; // 递增递归计数
+
+            try {
+            drippingRecursion(self); // 递归调用自身
+            } catch (e) {
+            self.count = 0; // 捕获异常并重置递归计数
+            return;
+            }
+        }
+        }
+
+        // 入栈检测
+        const pushTesting = ([x, y], self) => {
+        const data = self.ctx.getImageData(x, y, 1, 1).data; // 获取指定点的图像数据
+
+        // 已经填充
+        if (self.solvedSet.has(`${x};${y}`)) {
+            return false;
+        }
+
+        // 已经入栈
+        if (self.stackedSet.has(`${x};${y}`)) {
+            return false;
+        }
+
+        // 色彩偏移检测
+        if ((self.coverFillColor[0] - data[0] < -self.tolerance || self.coverFillColor[0] - data[0] > self.tolerance)
+            || (self.coverFillColor[1] - data[1] < -self.tolerance || self.coverFillColor[1] - data[1] > self.tolerance)
+            || (self.coverFillColor[2] - data[2] < -self.tolerance || self.coverFillColor[2] - data[2] > self.tolerance)
+            || (self.coverFillColor[3] - data[3] < -self.tolerance || self.coverFillColor[3] - data[3] > self.tolerance)) {
+            return false;
+        }
+
+        // 纯白色和纯黑色检测，遇到这两种颜色直接当作边界颜色
+        if ((data[0] === 255 && data[1] === 255 && data[2] === 255 && data[3] === 255) // 纯白色
+            || (data[0] === 0 && data[1] === 0 && data[2] === 0 && data[3] === 255)) { // 纯黑色
+            return false;
+        }
+
+        return true; // 如果通过所有检测，返回 true
+        }
+
+
+        
+        const endFill = self => {
+            self.count = 0
+            self.solvedSet.clear()
+            self.stackedSet.clear()
+            self.fillStack = []
+            self.successCB()
+        }
+        
+        // 抛出错误
+        const error = msg => {
+            throw msg
+        }
+        
+        // 获取填充起点
+        const getEventPosition = e => {
+            let x, y;
+        
+            if (e.layerX || e.layerX === 0) {
+            console.log("使用了 layerX 和 layerY 属性")
+            x = e.layerX
+            y = e.layerY
+            } else if (e.offsetX || e.offsetX === 0) { // Opera
+            console.log("使用了 offsetX 和 offsetY 属性")
+            x = e.offsetX
+            y = e.offsetY
+            }
+        
+            return [x, y]
+        }
+
+        // function getEventPosition(e) {
+        //     const canvas = document.getElementById(this.elementId); // 假设 this.elementId 是画布元素的 ID
+        //     const rect = canvas.getBoundingClientRect(); // 获取画布元素的边界矩形
+        //     const x = e.clientX - rect.left; // 计算相对于画布的 X 坐标
+        //     const y = e.clientY - rect.top; // 计算相对于画布的 Y 坐标
+        //     return [x, y];
+        // }
+        
+        // 是否是等色
+        const isSameColor = (s, b) => {
+            if (s[0] === b[0] && s[1] === b[1] && s[2] === b[2] && s[3] === b[3]) {
+            return true
+            }
+            return false
+        }
+
+
+        
+        w.FastFill = FastFill
+        })(window, document)
+        
+    </script>
+    <script type="text/javascript">
+        var maskArray_color = Array(500).fill(Array(500).fill("#000000")); // 定义一个500*500的数组，每个元素都是"#000000"
+        var maskArray_nan = Array(500).fill(Array(500).fill("#ffffff")); // 定义一个500*500的数组，每个元素都是"nan"
+        
+        // 全局变量，用于存储背景图像素数据
+        var pixelDataArray = [];
+
+        // 这个函数的作用是每次改动maskArray_color的时候，都要保证maskArray_nan中对应的位置也是"#000000"（缺失值始终是缺失值）
+        function updateColorArray() {
+            for (let i = 0; i < maskArray_nan.length; i++) {
+                for (let j = 0; j < maskArray_nan[i].length; j++) {
+                    if (maskArray_nan[i][j] === '#000000') {
+                        maskArray_color[i][j] = '#000000';
+                    }
+                }
+            }
+        }
+                
+        // 这个函数用于向python发送列表，这是用来发送鼠标位置的
+        function sendListToPython(listdata) {
+            if (window.bridge) {
+                var jsList = listdata;
+                window.bridge.receiveListFromJS(jsList);
+            } else {
+                console.log("桥接对象未初始化");
+            }
+        }
+
+        // 这个函数用于向python发送画布位置
+        function sendCanvasPositionToPython(listdata) {
+            if (window.bridge) {
+                window.bridge.receivePositionFromJs(listdata);
+            } else {
+                console.log("桥接对象未初始化");
+            }
+        }
+
+        // 发送遮罩数组给Python
+        function sendMuskArrayToPython() {
+            console.log("发送maskArray_color到Python");
+
+            if (window.bridge) {
+                try {
+                    let startTime, endTime;
+
+                    // 将数组转换为JSON字符串
+                    console.log("开始将数组转换为JSON字符串");
+                    startTime = performance.now();
+                    var jsonString = JSON.stringify(maskArray_color);
+                    endTime = performance.now();
+                    console.log(`JSON字符串转换完成，长度: ${jsonString.length}，耗时: ${endTime - startTime}ms`);
+
+                    // 压缩JSON字符串
+                    console.log("开始压缩JSON字符串");
+                    startTime = performance.now();
+                    var compressedData = pako.gzip(jsonString);
+                    endTime = performance.now();
+                    console.log(`压缩完成，压缩后数据长度: ${compressedData.length}，耗时: ${endTime - startTime}ms`);
+
+                    // 将压缩数据转换为Base64字符串
+                    console.log("开始将压缩数据转换为Base64字符串");
+                    startTime = performance.now();
+                    var binary = '';
+                    var bytes = new Uint8Array(compressedData);
+                    var len = bytes.byteLength;
+                    for (var i = 0; i < len; i++) {
+                        binary += String.fromCharCode(bytes[i]);
+                    }
+                    var base64Data = btoa(binary);
+                    endTime = performance.now();
+                    console.log(`Base64字符串转换完成，长度: ${base64Data.length}，耗时: ${endTime - startTime}ms`);
+
+                    // 发送数据到Python
+                    console.log("开始发送数据到Python");
+                    startTime = performance.now();
+                    window.bridge.receiveMuskArrayFromJS(base64Data)
+                        .then(() => {
+                            endTime = performance.now();
+                            console.log(`数据已成功发送到Python，耗时: ${endTime - startTime}ms`);
+                        })
+                        .catch(err => console.error("发送数据到Python时出错:", err));
+                } catch (error) {
+                    console.error("处理数据时发生错误:", error);
+                }
+            } else {
+                console.log("桥接对象未初始化");
+            }
+        }
+
+
+
+        
+
+        document.addEventListener("DOMContentLoaded", function() {
+            // 创建 QWebChannel 实例
+            new QWebChannel(qt.webChannelTransport, function(channel) {
+                // 将 QWebChannel 的 bridge 对象保存为全局变量
+                window.bridge = channel.objects.bridge;
+
+                // 处理分块数据接收
+                var receivedChunks = [];
+                var totalChunks = 0;
+                var expectedChunks = 0;
+
+                window.bridge.sendChunkToJS.connect(function(chunk, index, total) {
+                    console.log("接收到从python发来的数据块，块索引为:", index, "总块数为:", total);
+                    if (expectedChunks === 0) {
+                        expectedChunks = total;
+                    }
+                    // console.log("数据块内容:", chunk);
+                    console.log("数据块类型:", typeof chunk);
+                    console.log("数据块大小 (字符数):", chunk.length);
+
+                    receivedChunks[index] = chunk;
+                    totalChunks++;
+
+                    if (totalChunks === expectedChunks) {
+                        console.log("接收到从python发来的所有数据块，数据块总数为:", totalChunks);
+                        // console.log("所有数据块内容:", receivedChunks);
+
+                        var combinedChunks = receivedChunks.join('');
+                        var decodedData = atob(combinedChunks);  // 解码base64字符串
+                        var byteArray = new Uint8Array(decodedData.length);
+                        for (var i = 0; i < decodedData.length; i++) {
+                            byteArray[i] = decodedData.charCodeAt(i);
+                        }
+                        // console.log("合并后的压缩数据:", byteArray);
+                        
+                        try {
+                            var decompressedData = pako.ungzip(byteArray, { to: 'string' });
+                            if (!decompressedData) {
+                                console.error("解压缩数据失败或结果为空");
+                                return;
+                            }
+                            // console.log("解压缩后的数据:", decompressedData);
+                            var data = JSON.parse(decompressedData);
+                            // console.log("解析后的数据:", data);
+
+                            if (Array.isArray(data[0])) {
+                                console.log("接收到从python发来的数组，数组元素数量为:", data.length);
+                                console.log("两个子数组的形状分别是:", data[0].length, data[0][0].length, data[1].length, data[1][0].length);
+                                maskArray_color = data[0];
+                                maskArray_nan = data[1];
+                                console.log("更新maskArray_color和maskArray_nan成功");
+                            }
+                        } catch (error) {
+                            console.error("处理接收数据时发生错误:", error);
+                        }
+                    }
+                });
+
+                // 处理背景图像接收
+                window.bridge.sendBase64ToJS.connect(function(base64Data) {
+                    console.log("接收到python发来的背景图像");
+                    console.log("背景图像数据长度:", base64Data.length);
+                    handleBase64Image(base64Data);
+                });
+            });
+        });
+
+
+        // 下面是处理极坐标用到的函数
+        // 下面是处理极坐标用到的函数
+        // 将直角坐标 (x, y) 转换为极坐标 (r, theta)
+        function rectToPolar(item) {
+            const r = Math.sqrt(item.x ** 2 + item.y ** 2); // 计算半径 r
+            let theta = Math.atan2(item.y, item.x) * (180 / Math.PI); // 计算角度 theta，并将其转换为度数
+            if (theta < 0) {
+                theta += 360; // 确保角度在 0 到 360 度之间
+            }
+            return {r:r, theta:theta};
+        }
+
+        // 判定一个点可能对应的所有极坐标
+        function pixelToPolar(item_o, a = 360) {
+            const item = rectToPolar(item_o); // 将直角坐标转换为极坐标
+            const b = item.r * Math.sin(Math.PI / a); // 计算 b 值
+            
+            // 初始化列表，包含原始极坐标，要转化成数组坐标，而不是完整的极坐标
+            const possiblePolarCoords = [{r:Math.round(item.r), theta:Math.round(item.theta*a/360)}];
+            
+            let i = 1;
+            while (b < (1 / (2 ** i))) { // 例如 b < 0.5, b < 0.25, b < 0.125, ...
+                possiblePolarCoords.push({r:Math.round(item.r), theta:Math.round((item.theta + i)*a/360 % 360)});
+                possiblePolarCoords.push({r:Math.round(item.r), theta:Math.round((item.theta - i)*a/360 % 360)});
+                i += 1;
+            }
+            
+            // 去除重复的极坐标
+            const uniquePolarCoords = Array.from(new Set(possiblePolarCoords.map(JSON.stringify))).map(JSON.parse);
+            return uniquePolarCoords;
+        }
+
+
+        // 将极坐标 (r, theta) 转换为直角坐标 (x, y)
+        function polarToRect(item) {
+            const thetaRad = item.theta * (Math.PI / 180); // 将角度从度数转换为弧度
+            const x = item.r * Math.cos(thetaRad);
+            const y = item.r * Math.sin(thetaRad);
+            return {x:x, y:y};
+        }
+
+        // 将极坐标转换为像素坐标
+        function polarToPixels(item1, a = 360) {
+            const thetaRad = item1.theta * (Math.PI / 180); // 将角度从度数转换为弧度
+            const item2 = polarToRect(item1); // 将极坐标转换为直角坐标
+            const b = item1.r * Math.sin(Math.PI / a); // 计算弦长b值
+
+            // 如果 b 值较小，则获取相邻点
+            if (b < 0.3) { // 例如，b < 0.5, b < 0.25, b < 0.125, ...
+                return [[Math.round(item2.x), Math.round(item2.y)]];
+            } else if (b < 1.2) {
+                const minPoints = getAdjacentPoints(item2, item1, 3);
+                return [{x: Math.round(item2.x), y: Math.round(item2.y)}, ...minPoints];
+            }
+            
+            const xMin = Math.round(item2.x - b);
+            const xMax = Math.round(item2.x + b);
+            const yMin = Math.round(item2.y - b);
+            const yMax = Math.round(item2.y + b);
+            
+            const pixels = []; // 用于存储满足条件的像素点
+            
+            // 遍历 (xMin, xMax) 和 (yMin, yMax) 范围内的所有点
+            for (let x = xMin; x <= xMax; x++) {
+                for (let y = yMin; y <= yMax; y++) {
+                    const {r:r1, theta:theta1} = rectToPolar({x:x, y:y}); // 将直角坐标转换为极坐标
+                    if (Math.abs(r1 - item1.r) <= 1) {
+                        if (Math.abs(theta1 - item1.theta) <= 360/a/2) {
+                            pixels.push({x:x, y:y}); // 满足条件的像素点加入列表
+                        }
+                    }
+                }
+            }
+            
+            // 去除重复的像素点
+            return Array.from(new Set(pixels.map(JSON.stringify)), JSON.parse);
+        }
+
+        // 计算和一个点最接近的相邻点
+        function getAdjacentPoints(item2, item1, num = 1) {
+            const differences = [];
+            // 遍历周围的八个点
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    if (dx === 0 && dy === 0) continue; // 跳过中心点本身
+                    const x = Math.round(item2.x) + dx;
+                    const y = Math.round(item2.y) + dy;
+                    const item3 = rectToPolar({x: x, y: y}); // 计算极坐标
+                    const diff = Math.abs(item1.r - item3.r) + Math.abs(item1.theta - item3.theta); // 计算差异
+                    differences.push([{x: x, y: y}, diff]); // 添加到列表
+                }
+            }
+            
+            differences.sort((a, b) => a[1] - b[1]); // 根据差异排序
+            return differences.slice(0, num).map(item => item[0]); // 返回差异最小的点的对象
+        }
+
+        // ——————————将极坐标数据映射到画布数组
+        function polarArrayToCanvasArray(polarArray) {
+            const canvasSize = picwidth; // 画布大小
+            const canvas1 = Array.from({ length: canvasSize }, () => Array(canvasSize).fill("#000000")); // 创建一个空白二维数组（默认黑色）
+            const dimension = polarArray.length; // 获取极坐标数组的维度
+
+            for (let theta = 0; theta < polarArray.length; theta++) {
+                for (let r = 0; r < polarArray[theta].length; r++) {
+                    theta_use = theta*360/dimension;
+                    let pointlistFinal = [];
+                    const pointlist = polarToPixels({ r: r, theta: theta_use }, dimension); // 使用极坐标映射到像素坐标计算笛卡尔坐标
+
+                    for (const { x: x, y: y } of pointlist) {
+                        const xCanvas = Math.round(x + canvasSize / 2);
+                        const yCanvas = Math.round(y + canvasSize / 2);
+                        pointlistFinal.push([xCanvas, yCanvas]);
+                    }
+
+                    for (const [xCanvas, yCanvas] of pointlistFinal) {
+                        if (0 <= xCanvas && xCanvas < canvasSize && 0 <= yCanvas && yCanvas < canvasSize) { // 确保坐标在画布范围内
+                            const hexColor = polarArray[theta][r];
+                            if (/^#[0-9A-F]{6}$/i.test(hexColor)) { // 检查是否为有效的十六进制颜色代码
+                                canvas1[xCanvas][yCanvas] = hexColor; // 在画布上标记点
+                            }
+                        }
+                    }
+                }
+            }
+            return canvas1;
+        }
+
+
+        // ————————————将零散画布位置列表转换为极坐标
+        function scatterCanvasToPolar(canvasList, canvasSize = 1000 ,a = 360) {
+            const polarCoords = [];
+
+            for (const point of canvasList) {
+                const x = point.x - canvasSize / 2;
+                const y = point.y - canvasSize / 2;
+                const pointlist = pixelToPolar({x:x, y:y},a);
+                polarCoords.push(...pointlist);
+            }
+
+            return Array.from(new Set(polarCoords.map(JSON.stringify)), JSON.parse);
+        }
+
+        // ————————————零散极坐标位置到画布
+        function scatterPolarToCanvas(polarCoords, canvasSize = 1000 , a = 360) {
+            const canvasCoords = [];
+
+            for (const item of polarCoords) {
+                const pointlist = polarToPixels({theta:item.theta/a*360, r:item.r},a);
+                const adjustedPointlist = pointlist.map(({x, y}) => ({x: x + canvasSize / 2, y: y + canvasSize / 2}));
+                canvasCoords.push(...adjustedPointlist);
+            }
+
+
+            return Array.from(new Set(canvasCoords.map(JSON.stringify)), JSON.parse);
+        }
+
+
+
+
+
+
+    </script>
+    <style>
+        body, html {
+            max-width: 100%;
+            max-height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 0;
+        }
+        #brush-tools {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            padding: 5px;
+            background-color: #f8f8f8;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 15px;
+        }
+        .tool-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            width: calc(100% + 10px);
+        }
+        #brush-tools button {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 33px;
+            height: 33px;
+            border: none;
+            border-radius: 50%;
+            background-color: #fff;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        #brush-tools button:hover {
+            background-color: #e0e0e0;
+            transform: scale(1.1);
+        }
+        #brush-tools button:active {
+            transform: scale(0.9);
+            background-color: #d0d0d0;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        #brush-tools button i {
+            font-size: 15px;
+            color: #333;
+        }
+        #controls {
+            border: 0px solid #000;
+        }
+        #canvas-container {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+        .color-button {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            margin: 3px;
+            border-radius: 50%;
+            border: 1px solid #000;
+            cursor: pointer;
+        }
+        .center-align label {
+            font-size: 14px; /* 设置标签字体大小 */
+            font-family: "YouYuan"
+        }
+        .label-slide{
+            margin-top: 3px;
+        }
+        .center-align {
+            display: flex;
+            align-items: center;
+            margin-left: 5px;
+            margin-right: 5px;
+            gap: 3px;
+        }
+        input[type="range"] {
+            width: 70px;
+            height: 10px;
+            -webkit-appearance: none;
+            appearance: none;
+            background-color: #ccc;
+            border-radius: 5px;
+            outline: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        input[type="range"]:hover {
+            background-color: #cb8181;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #666;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background-color: #3870b9;
+        }
+        input[type="range"]:active::-webkit-slider-thumb {
+            background-color: #1d6541;
+        }
+        /* 工具提示框样式 */
+        [data-title]:hover {
+            position: relative;
+        }
+
+        [data-title]:after {
+            content: attr(data-title);
+            position: absolute;
+            top: 35px; /* 将此值增加以将提示显示得更下面 */
+            left: 10px;
+            color: #666;
+            font-size: 12px;
+            border: 1px solid #ffffff;
+            background-color: #fff;
+            z-index: 20;
+            line-height: 1.5;
+            font-style: normal; 
+            white-space: nowrap;
+            padding: 0 5px;
+            border-radius: 4px; /* 添加圆角 */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* 添加阴影 */
+            opacity: 0; /* 初始透明度 */
+            transition: opacity 0.5s ease; /* 过渡持续时间 */
+            transition-delay: 0s; /* 移除延迟 */
+        }
+
+        [data-title]:hover:after {
+            opacity: 1; /* 悬停时的透明度 */
+            transition-delay: 1s; /* 悬停时的延迟，一成功显示立刻修改，让它能够立刻延迟出现动画，鼠标一移开，延迟效果消失，控件立刻开始动画消失，天知道我改了多久 */
+        }
+
+
+        /* Night mode styles */
+        body.night-mode, html.night-mode {
+            background-color: #000000;
+            color: #e0e0e0;
+        }
+        #brush-tools.night-mode {
+            background-color: #333;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        }
+        #brush-tools.night-mode button {
+            background-color: #444;
+        }
+        #brush-tools.night-mode button:hover {
+            background-color: #555;
+        }
+        #brush-tools.night-mode button:active {
+            background-color: #666;
+        }
+        #brush-tools.night-mode button i {
+            color: #e0e0e0;
+        }
+        .color-button.night-mode {
+            border: 1px solid #e0e0e0;
+        }
+        .center-align.night-mode label {
+            color: #e0e0e0;
+        }
+        input[type="range"].night-mode {
+            background-color: #666;
+        }
+        input[type="range"].night-mode:hover {
+            background-color: #888;
+        }
+        input[type="range"].night-mode::-webkit-slider-thumb {
+            background-color: #ccc;
+        }
+        input[type="range"].night-mode::-webkit-slider-thumb:hover {
+            background-color: #fff;
+        }
+
+        /* 夜间模式下的工具栏浮现样式 */
+        .night-mode [data-title]:after {
+            color: #e0e0e0;
+            background-color: #333;
+            border: 1px solid #444;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <div id="brush-tools">
+            <div class="tool-row">
+                <button id="toggle-night-mode" data-title="切换夜间模式" style="display: none;"><i class="fas fa-moon"></i></button>
+                <button id="draw-polygon" data-title="绘制多边形，左键绘制，右键结束绘制"><i class="fas fa-draw-polygon"></i></button>
+                <button id="draw-rectangle" data-title="绘制矩形，左键绘制，右键结束绘制"><i class="fa-regular fa-square"></i></button>
+                <button id="draw-circle" data-title="绘制圆形，左键绘制，右键结束绘制"><i class="fa-regular fa-circle"></i></button>
+                <button id="draw-filltool" data-title="填色工具，单击左键填色，等待完成，区域大或者跳跃像素开大会等很久，正常现象。"><i class="fas fa-fill-drip"></i></button>
+                <button id="draw-brush" data-title="直接进行绘制"><i class="fas fa-paint-brush"></i></button>
+                <div class="center-align">
+                    <label for="brush-color">自定颜色&nbsp;</label>
+                    <input type="color" id="brush-color" value="#ff0000" data-title="设置自定义颜色，但是非预定义颜色存入遮罩的时候会统一数值">
+                </div>
+                画笔种类颜色替换位置
+            </div>
+            <div class="tool-row">
+                <div class="center-align">
+                    <label for="brush-size" data-title="调整画笔绘制宽度，数值为半径" class="label-slide">画笔宽度：</label>
+                    <input type="range" id="brush-size" min="1" max="200" value="100">
+                </div>
+                <div class="center-align">
+                    <label for="fill-tolerance" data-title="调整填色工具检测颜色的容差" class="label-slide">填色容差：</label>
+                    <input type="range" id="fill-tolerance" min="1" max="200" value="100">
+                </div>
+                <div class="center-align">
+                    <label for="skip-pixels" data-title="调整填色工具遇到边界时跳跃几个像素进行检测" class="label-slide">跳跃像素：</label>
+                    <input type="range" id="skip-pixels" min="1" max="20" value="1">
+                </div>
+            </div>
+        </div>
+        <div id="canvas-container">
+            <canvas id="c"></canvas>
+        </div>
+    </div>
+    <script>
+        // 初始化设置 //
+        var canvasElement = document.getElementById('canvas-container');
+        var brushToolsHeight = document.getElementById('brush-tools').offsetHeight;
+        canvasElement.style.position = 'relative';
+        canvasElement.style.top = brushToolsHeight + 'px';
+
+        var picwidth = 500;
+        var picheight = 500;
+
+        // 初始化fabric画布
+        var canvas = new fabric.Canvas('c', {
+            imageSmoothingEnabled: false // 将像素点平滑关掉
+            });
+        canvas.isDrawingMode = true; // 启用绘制模式
+        canvas.freeDrawingBrush.color = "#000000"; // 默认画笔颜色设置为黑色
+        var isDrawing = false;
+        var lastPoint = null;
+        var pixelSize = 1; // 定义每个像素点的大小
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const centerX = canvasWidth / 2;
+        const centerY = canvasHeight / 2;
+        var coordinateFlag = "rect"; // 定义全局标志位，默认为"rect"
+        var Nightmode = false; // 默认不是夜间模式
+        
+
+        // 按照画布上的点和缩放参数移动画布的函数
+        function adjustCanvas(zoom, canvasCenterX, canvasCenterY) {
+
+            // 设置画布的缩放级别
+            canvas.setZoom(1);
+
+            canvas.absolutePan(new fabric.Point(0, 0));
+
+            //实际偏移的位置
+            const viewportWidth2 = parseInt(document.getElementById('c').style.width);//这个才是实际显示的画布大小，非style是当初设定的直接属性值
+            const viewportHeight2 = parseInt(document.getElementById('c').style.height);//这个才是实际显示的画布大小
+            console.log(viewportWidth2/2,viewportHeight2/2,canvasCenterX, canvasCenterY)
+
+            // 计算视窗中心点相对于画布原点的偏移量
+            const offsetX = canvasCenterX - viewportWidth2 / 2;
+            const offsetY = canvasCenterY - viewportHeight2 / 2;
+            console.log(offsetX,offsetY)
+
+            // 使用absolutePan方法来移动画布到指定的中心位置
+            canvas.absolutePan(new fabric.Point(offsetX, offsetY));
+
+
+            // 使用zoomToPoint方法，以移动后的视窗中心作为缩放的中心，tmd这个方法的参数是相对于视窗的位置的点，而不是画布位置的点……
+            canvas.zoomToPoint(new fabric.Point(viewportWidth2 / 2, viewportHeight2 / 2), zoom);
+
+            // 请求画布重新渲染
+            canvas.requestRenderAll();
+        }
+
+
+
+
+
+
+
+
+
+
+
+        // 设置夜间模式的函数
+        function toggleNightMode(forceNightMode = null) {
+            console.log("切换白天夜间模式");
+            const isNightMode = document.body.classList.contains('night-mode');
+            if (forceNightMode !== null) {
+                if (forceNightMode && !isNightMode) {
+                    document.body.classList.add('night-mode');
+                    document.getElementById('brush-tools').classList.add('night-mode');
+                    document.querySelectorAll('.color-button, .center-align label, input[type="range"]').forEach(function(el) {
+                        el.classList.add('night-mode');
+                    });
+                } else if (!forceNightMode && isNightMode) {
+                    document.body.classList.remove('night-mode');
+                    document.getElementById('brush-tools').classList.remove('night-mode');
+                    document.querySelectorAll('.color-button, .center-align label, input[type="range"]').forEach(function(el) {
+                        el.classList.remove('night-mode');
+                    });
+                }
+            } else {
+                document.body.classList.toggle('night-mode');
+                document.getElementById('brush-tools').classList.toggle('night-mode');
+                document.querySelectorAll('.color-button, .center-align label, input[type="range"]').forEach(function(el) {
+                    el.classList.toggle('night-mode');
+                });
+            }
+        }
+
+        document.getElementById('toggle-night-mode').onclick = function() {
+            toggleNightMode();
+        };
+
+        toggleNightMode(Nightmode);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        window.onload = function() {
+            setTimeout(function() {
+                sendMuskArrayToPython();
+            }, 500);
+        };
+
+
+
+
+
+        // 工具栏相关设置 //
+
+        {//这个代码块是设置工具栏的宽度适中
+            const brushTools = document.getElementById('brush-tools');
+            const toolRows = brushTools.getElementsByClassName('tool-row');
+
+            let maxWidth = 0;
+
+            Array.from(toolRows).forEach(row => {
+                let rowWidth = 0;
+                Array.from(row.children).forEach(child => {
+                    const style = window.getComputedStyle(child);
+                    const margin = parseFloat(style.marginLeft) + parseFloat(style.marginRight);
+                    rowWidth += child.offsetWidth + margin;
+                });
+                // 更新最大宽度
+                if (rowWidth > maxWidth) {
+                    maxWidth = rowWidth;
+                }
+            });
+
+            // 设置brush-tools的宽度为最大子元素行宽度加上30px
+            brushTools.style.width = `${maxWidth + 50}px`;
+        }
+
+        {// 设定滑块元素和对应的监视器
+            var brushColorInput = document.getElementById('brush-color');
+            var brushSizeInput = document.getElementById('brush-size');
+            var fillToleranceInput = document.getElementById('fill-tolerance');
+            var skipPixelsInput = document.getElementById('skip-pixels');
+
+            // 监听画笔颜色选择器的变化
+            brushColorInput.addEventListener('change', function() {
+                // 设置画笔颜色
+                canvas.freeDrawingBrush.color = this.value;
+            });
+
+            // 监听画笔宽度选择器的变化
+            brushSizeInput.addEventListener('change', function() {
+                // 设置画笔宽度
+                canvas.freeDrawingBrush.width = parseInt(this.value, 10);
+            });
+
+            var fillToleranceValue = 100;
+            var skipPixelsValue = 1;
+
+            // 监听填色容差滑动条的变化
+            fillToleranceInput.addEventListener('change', function() {
+                // 创建一个新的变量来存储填色容差的值
+                fillToleranceValue = parseInt(this.value, 10);
+            });
+
+            // 监听跳跃像素滑动条的变化
+            skipPixelsInput.addEventListener('change', function() {
+                // 创建一个新的变量来存储跳跃像素的值
+                skipPixelsValue = parseInt(this.value, 10);
+            });
+        }
+
+        // 初始化画笔颜色和宽度
+        canvas.freeDrawingBrush.color = brushColorInput.value;
+        canvas.freeDrawingBrush.width = parseInt(brushSizeInput.value, 10);
+        //设置填色对象
+        var FF = null;
+        var filltoolflag = false;
+
+        // 预设颜色按钮，点击按钮可以更改画笔颜色成为标准颜色
+        var colorButtons = document.querySelectorAll('.color-button');
+        colorButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                console.log("点击了颜色按钮");
+                var color = window.getComputedStyle(this).backgroundColor;
+                canvas.freeDrawingBrush.color = rgbToHex(color);
+                brushColorInput.value = canvas.freeDrawingBrush.color;
+            });
+        });
+
+        // 当前绘制的图形类型
+        let currentShape = 'brush';
+        // 临时点数组，用于存储绘制多边形时的点
+        let tempPoints = [];
+        // 当前绘制的对象（多边形、矩形或圆形）
+        let currentObject = null;
+        // 是否按下了 alt 键
+        let altKeyDown = false;
+        // 存储画笔轨迹的点数组
+        let brushPoints = [];
+
+
+        // 工具栏按钮点击事件
+        document.getElementById('draw-polygon').onclick = () => setCurrentShape('polygon');
+        document.getElementById('draw-rectangle').onclick = () => setCurrentShape('rectangle');
+        document.getElementById('draw-circle').onclick = () => setCurrentShape('circle');
+        document.getElementById('draw-brush').onclick = () => setCurrentShape('brush');
+        document.getElementById('draw-filltool').onclick = () => setCurrentShape('filltool');
+
+
+        // 设置当前绘制的图形类型
+        function setCurrentShape(shape) {
+            console.log('setCurrentShape', shape);
+            console.log('currentShape', currentShape);
+            // 如果当前工具是填色工具，则在切换前调用fillToolClose()
+            if (currentShape === 'filltool') {
+                fillToolclose();
+            }
+
+            if (shape === 'brush') {
+                canvas.isDrawingMode = true;
+            }else{
+                canvas.isDrawingMode = false;
+            }
+
+            currentShape = shape;
+            tempPoints = [];
+            brushPoints = [];
+            if (currentObject) {
+                canvas.remove(currentObject);
+                currentObject = null;
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
+        
+
+
+        // 绘图完成后进行点对象列表处理的统一入口
+        function ProcessDrawingPointSetList(uniquePixels){
+            // 过滤掉不在画布范围内的点
+            uniquePixels = uniquePixels.filter(function(point) {
+                return point.x >= 0 && point.x < picwidth && point.y >= 0 && point.y < picheight;
+            });
+            if (coordinateFlag === "polar") {
+                console.log("正在绘制极坐标图");
+                //现将零散画布坐标映射到极坐标
+                let polarCoordinates = scatterCanvasToPolar(uniquePixels, picwidth ,maskArray_color.length);
+                // 然后删掉多余的坐标点（映射之后应该是根据极坐标去删除，删除的原理一样）
+                uniquePixels2 = deletepoints(polarCoordinates, maskArray_nan);
+                // 删除完之后即将绘制的点保存到数组里
+                uniquePixels2.forEach(pixel => {
+                    maskArray_color[maskArray_color.length - 1 - pixel.theta][maskArray_color[0].length - 1 - pixel.r] = canvas.freeDrawingBrush.color; // 将maskArray_color中的对应位置的颜色值改为画笔颜色，并左右颠倒
+                });
+                //然后将极坐标映射到画布坐标
+                uniquePixels2 = scatterPolarToCanvas(uniquePixels2, picwidth ,maskArray_color.length);
+                //最后绘制
+                drawPixelsOnCanvas(canvas, uniquePixels2);
+
+            } else if (coordinateFlag === "rect") {
+                console.log("可绘制的范围是:", maskArray_color.length, maskArray_color[0].length);
+                uniquePixels = deletepoints(uniquePixels, maskArray_nan);
+                uniquePixels.forEach(pixel => {
+                    maskArray_color[maskArray_color.length - 1 - pixel.x][maskArray_color[0].length - 1 - pixel.y] = canvas.freeDrawingBrush.color; // 将maskArray_color中的对应位置的颜色值改为画笔颜色，并左右颠倒
+                });
+                drawPixelsOnCanvas(canvas, uniquePixels);
+            }
+        }
+
+
+        // 这个函数的作用是获取两点之间的所有像素点，输入参数为两个点的坐标，返回值为这两点之间的所有像素点的坐标数组
+        function getLinePixels(start, end) {
+            var dx = end.x - start.x;
+            var dy = end.y - start.y;
+            var distance = Math.sqrt(dx * dx + dy * dy);
+            var stepX = dx / distance;
+            var stepY = dy / distance;
+            var linePixels = [];
+        
+            for (var i = 0; i <= distance; i++) {
+                var x = start.x + stepX * i;
+                var y = start.y + stepY * i;
+                linePixels.push({x: Math.round(x), y: Math.round(y)});
+            }
+        
+            return linePixels;
+        }
+        
+        // 这个函数的作用是获取以输入点为圆心，指定半径的圆内的所有像素点，输入参数为圆心坐标和半径，返回值为圆内的所有像素点的坐标数组
+        function getCircleCoveredPixels(inputPoint, diameter) {
+            var pixels = [];
+            // 将直径转换为半径
+            var radius = diameter / 2;
+            var radiusSquared = Math.pow(radius, 2);
+            var centerX = inputPoint.x;
+            var centerY = inputPoint.y;
+        
+            // 遍历圆的边界框内的每个点
+            for (var x = centerX - radius; x <= centerX + radius; x++) {
+                for (var y = centerY - radius; y <= centerY + radius; y++) {
+                    // 检查点是否在圆内
+                    if (Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2) <= radiusSquared) {
+                        pixels.push({x: x, y: y});
+                    }
+                }
+            }
+        
+            return pixels;
+        }
+
+        // 这个函数用来删掉不符合条件的点，这个b函数的内部顺序全tm是乱的，我根本看不懂，一点点尝试了三四小时尝试出来的
+        function deletepoints(uniquePixels, maskarray_delete){
+            // 假设maskarray_delete的尺寸是已知的
+            const width = maskarray_delete[0].length;
+            const height = maskarray_delete.length;
+
+            // 初始化二维布尔数组
+            const isBlackPoint = Array.from({ length: height }, () => new Array(width).fill(false));
+
+            // 填充布尔数组
+            for (let i = 0; i < height; i++) {
+                for (let j = 0; j < width; j++) {
+                    if (maskarray_delete[i][j] === "#000000") {
+                        isBlackPoint[i][j] = true;
+                    }
+                }
+            }
+
+            // 构造好的二维布尔数组：isBlackPoint
+            // 左右翻转
+            for (let i = 0; i < height; i++) {
+                isBlackPoint[i].reverse();
+            }
+
+            // 上下翻转
+            isBlackPoint.reverse();
+
+            if (coordinateFlag === "rect"){
+
+                uniquePixels = uniquePixels.filter(function(pixel) {
+                    return pixel.x >= 0 && pixel.x < height && pixel.y >= 0 && pixel.y < width;
+                });
+
+                // 过滤uniquePixels
+                uniquePixels = uniquePixels.filter(pixel => !isBlackPoint[pixel.x][pixel.y]);
+            }else{
+
+                uniquePixels = uniquePixels.filter(function(pixel) {
+                    return pixel.theta >= 0 && pixel.theta < height && pixel.r >= 0 && pixel.r < width;
+                });
+
+                // 过滤uniquePixels
+                uniquePixels = uniquePixels.filter(pixel => !isBlackPoint[pixel.theta][pixel.r]);
+
+            }
+
+            return uniquePixels
+
+        }
+
+        // 这个函数的作用是将不重复的像素点数组绘制到 canvas 上
+        function drawPixelsOnCanvas(canvas, uniquePixels) {
+            // 创建一个临时 canvas，用于绘制临时图像，出现很整齐的绘制不到画布上，一定是画布范围没有设置好
+            var tempCanvas = document.createElement('canvas');
+            tempCanvas.width = picwidth; // 设置临时 canvas 的宽度与主 canvas 一致
+            tempCanvas.height = picheight; // 设置临时 canvas 的高度与主 canvas 一致
+            var tempCtx = tempCanvas.getContext('2d'); // 获取临时 canvas 的 2D 绘图上下文
+
+            // 设置临时 canvas 的绘图填充颜色为主 canvas 的自由绘制笔刷颜色
+            tempCtx.fillStyle = canvas.freeDrawingBrush.color;
+
+            // 过滤掉 x 或 y 为 null 的点坐标对象
+            uniquePixels = uniquePixels.filter(function(pixel) {
+                return pixel.x !== null && pixel.y !== null;
+            });
+
+
+            // 遍历 uniquePixels 数组，绘制每一个像素点
+            uniquePixels.forEach(function(pixel) {
+                    // 检查画笔颜色是否为白色
+                    if (canvas.freeDrawingBrush.color === "#ffffff") {
+                        // 如果画笔颜色为白色，尝试从 pixelDataArray 中获取对应像素点的颜色
+                        var pixelColor = pixelDataArray[pixel.y][pixel.x].color;
+
+                        // 使用获取到的颜色值填充该像素点
+                        tempCtx.fillStyle = pixelColor;
+                    } else {
+                        // 如果画笔颜色不是白色，使用笔刷颜色绘制像素点
+                        tempCtx.fillStyle = canvas.freeDrawingBrush.color;
+                    }
+                    // 在临时 canvas 上填充该像素点
+                    tempCtx.fillRect(pixel.x, pixel.y, 1, 1);
+            });
+
+            // 将临时 canvas 转换为 fabric.Image，并添加到主 canvas 上
+            var imgElement = new Image();
+            imgElement.onload = function() {
+                var imgInstance = new fabric.Image(imgElement, {
+                    left: 0,
+                    top: 0,
+                    selectable: false,
+                    evented: false,
+                    objectCaching: false,
+                    imageSmoothing: false
+                });
+                canvas.add(imgInstance);
+                canvas.renderAll();
+            };
+            imgElement.src = tempCanvas.toDataURL();
+
+
+            setTimeout(function() {
+                sendMuskArrayToPython();
+            }, 10);
+
+
+            // 合并图像到主 canvas 上
+            //mergeImagesOnCanvas(canvas);
+        }
+
+
+        
+        // 十六进制颜色转换为RGBA函数
+        function hexToRgba(hex, alpha = 1) {
+            var r = parseInt(hex.slice(1, 3), 16),
+                g = parseInt(hex.slice(3, 5), 16),
+                b = parseInt(hex.slice(5, 7), 16);
+        
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        // RGB颜色转换为十六进制颜色函数
+        function rgbToHex(rgb) {
+            // 正则匹配rgb中的数字
+            let matches = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+            if (!matches) {
+                return rgb; // 如果输入不是有效的rgb格式，直接返回原字符串
+            }
+
+            // 将rgb值转换为十六进制，并返回
+            return "#" + matches.slice(1, 4).map(x => {
+                return ("0" + parseInt(x).toString(16)).slice(-2);
+            }).join('');
+        }
+
+        // 定义一个函数，用于将xy坐标转换为极坐标（半径和度数）————主要用于向Qt传递坐标的时候使用
+        function convertXYToPolarCoordinates(x, y) {
+            // 假设图像的宽度和高度已知，这里使用全局变量picwidth和picheight
+            const canvasWidth = picwidth;
+            const canvasHeight = picheight;
+            // 计算圆心坐标
+            const centerX = canvasWidth / 2;
+            const centerY = canvasHeight / 2;
+            // 使用圆心坐标和输入的xy坐标计算dx和dy
+            const dx = x - centerX;
+            const dy = y - centerY;
+            // 计算半径
+            const radius = Math.sqrt(dx * dx + dy * dy);
+            // 计算从正X轴开始的弧度
+            let radian = Math.atan2(dy, dx);
+            // 如果弧度为负，加上2π转换为正弧度
+            if (radian < 0) {
+                radian += 2 * Math.PI;
+            }
+            // 将弧度转换为角度
+            const degree = radian * (180 / Math.PI);
+
+            // 返回半径和度数
+            return { radius, degree: Math.round(degree) };
+        }
+
+
+        // 长得很类似的绘制像素点的函数，不过这个函数主要用来画刷新的遮罩层，功能单一
+        function drawColorArrayOnCanvas(colorArray) {
+
+            colorArray_temp = JSON.parse(JSON.stringify(colorArray));
+            // 上下翻转 colorArray
+            colorArray_temp.reverse();
+
+            // 左右翻转 colorArray 的每一行
+            colorArray_temp.forEach(row => row.reverse());
+
+            if (coordinateFlag === "polar"){
+                colorArray_temp = polarArrayToCanvasArray(colorArray_temp);
+            }
+
+            // 更新 colorArray
+            console.log("开始绘制遮罩层");
+
+            // 获取二维数组的尺寸
+            var rows = colorArray_temp.length;
+            var cols = rows > 0 ? colorArray_temp[0].length : 0;
+
+            // 创建一个临时 canvas，用于绘制临时图像
+            var tempCanvas2 = document.createElement('canvas');
+            tempCanvas2.width = colorArray_temp.length  ; // 设置临时 canvas 的宽度与主 canvas 一致
+            console.log("tempCanvas2.width", tempCanvas2.width);
+            tempCanvas2.height = colorArray_temp[0].length ; // 设置临时 canvas 的高度与主 canvas 一致
+            console.log("tempCanvas2.height", tempCanvas2.height);
+            var tempCtx2 = tempCanvas2.getContext('2d'); // 获取临时 canvas 的 2D 绘图上下文
+
+            // 遍历 colorArray 二维数组，绘制每一个像素点
+            for (var x = 0; x < rows; x++) {
+                for (var y = 0; y < cols; y++) {
+                    var color = colorArray_temp[x][y];
+                    if (color && color !== '#ffffff' && color !== '#000000') {
+                        tempCtx2.fillStyle = color;
+                        tempCtx2.fillRect(x, y, 1, 1); // 绘制一个 1x1 的矩形
+                    }
+                }
+            }
+
+            // 将临时 canvas 转换为 fabric.Image，并添加到主 canvas 上
+            var imgElement2 = new Image();
+            imgElement2.onload = function() {
+                var imgInstance = new fabric.Image(imgElement2, {
+                    left: 0,
+                    top: 0,
+                    selectable: false,
+                    evented: false,
+                    objectCaching: false,
+                    imageSmoothing: false
+                });
+                canvas.add(imgInstance);
+                canvas.width = colorArray_temp.length;
+                console.log("canvas.width", canvas.width);
+                canvas.height = colorArray_temp[0].length;
+                console.log("canvas.height", canvas.height);
+                canvas.renderAll();
+            };
+            imgElement2.src = tempCanvas2.toDataURL();
+            console.log("绘制遮罩层成功");
+        }
+
+        // 在适当的时候调用initializeGlobalImage来初始化全局Image对象
+        // 例如，在canvas初始化后
+
+        // 这个函数的作用是将不重复的极坐标点转换为不重复的直角坐标点，返回值为直角坐标点数组
+        function calculateUniqueSquares(targetCanvas, totalRadius, segments, radiusDegreeColorPairs) {
+            const centerX = targetCanvas.width / 2;
+            const centerY = targetCanvas.height / 2;
+
+            const segmentAngle = 2 * Math.PI / segments;
+
+            let uniqueSquares = [];
+
+            radiusDegreeColorPairs.forEach(item => {
+                let {radius: actualRadius, degree: degreePosition, color: fillColor} = item;
+                actualRadius = Math.min(actualRadius, totalRadius);
+                const actualAngle = (degreePosition + 90) * Math.PI / 180;
+                const startAngle = actualAngle - segmentAngle / 2;
+                const endAngle = actualAngle + segmentAngle / 2;
+
+                for (let angle = startAngle; angle <= endAngle; angle += Math.PI / 1800) {
+                    const x = Math.round(centerX + actualRadius * Math.cos(angle));
+                    const y = Math.round(centerY + actualRadius * Math.sin(angle));
+
+                    if (!uniqueSquares.some(square => square.left === x && square.top === y)) {
+                        uniqueSquares.push({
+                            x:x,
+                            y:y
+                        });
+                    }
+                }
+            });
+
+            return uniqueSquares;
+        }
+
+        // 这个函数的作用是移除画布上除了背景对象之外的所有对象，然后将画布导出为图片URL，再将图片URL转换为fabric.Image对象添加到画布上
+        function mergeImagesOnCanvas(canvas) {
+            // 临时保存背景对象
+            var originalBackground = canvas.backgroundImage;
+            // 临时移除背景对象
+            canvas.backgroundImage = null;
+            // 重新渲染画布以应用背景对象的移除
+            canvas.renderAll();
+
+            // 导出当前画布的内容为图片URL（此时不包括背景对象）
+            var canvasURL = canvas.toDataURL({
+                format: 'png',
+                quality: 1
+            });
+
+            // 恢复背景对象
+            canvas.backgroundImage = originalBackground;
+            // 重新渲染画布以显示背景对象
+            canvas.renderAll();
+
+            // 清除画布上的所有对象（除了背景对象）
+            canvas.getObjects().forEach(function(obj) {
+                if (obj !== canvas.backgroundImage) {
+                    canvas.remove(obj);
+                }
+            });
+
+            // 使用导出的图片URL创建一个新的fabric.Image对象
+            fabric.Image.fromURL(canvasURL, function(newImage) {
+                // 将新的图像对象添加到画布上
+                canvas.add(newImage);
+                // 确保新图像对象在画布上的所有其他对象之下
+                newImage.moveTo(0);
+                // 渲染画布以显示更改
+                canvas.renderAll();
+            });
+        }
+
+        // 这个函数的作用是将canvas上的坐标转换为极坐标的半径和角度
+        function calculateRadiusAndDegreeFromCanvas(x, y) {
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            const centerX = picwidth / 2;
+            const centerY = picheight / 2;
+
+            const dx = x - centerX;
+            const dy = y - centerY;
+
+            // 计算半径并取整
+            const radius = Math.sqrt(dx * dx + dy * dy);
+
+            // 计算从正X轴开始的弧度
+            let radian = Math.atan2(dy, dx);
+
+            // 调整弧度使其从正Y轴开始
+            // radian -= Math.PI / 2;
+
+            // 如果弧度为负，加上2π转换为正弧度
+            if (radian < 0) {
+                radian += 2 * Math.PI;
+            }
+
+            // 将弧度转换为角度并取整
+            const degree = radian * (180 / Math.PI);
+
+            return { radius, degree };
+        }
+
+        // 这个函数的作用是将坐标数组集合转化为极坐标数组集合，并且去除重复项
+        function uniquePixelsToUniquePolarCoordinates(uniquePixels, canvas) {
+            const uniquePolarSet = new Set();
+        
+            uniquePixels.forEach(pixel => {
+                const { radius, degree } = calculateRadiusAndDegreeFromCanvas(pixel.x, pixel.y, canvas);
+                const polarStr = `${radius},${degree}`;
+                uniquePolarSet.add(polarStr);
+            });
+        
+            const uniquePolarCoordinates = Array.from(uniquePolarSet).map(str => {
+                const [radius, degree] = str.split(',').map(Number);
+                return { radius:radius, degree:degree }; // 为每个极坐标对象添加颜色值
+            });
+        
+            return uniquePolarCoordinates;
+        }
+        
+        // 这个函数的作用是为极坐标数组集合添加颜色值
+        function addColorToPolarCoordinates(polarCoordinates, brushColor) {
+            return polarCoordinates.map(coordinate => {
+                return { ...coordinate, color: brushColor }; // 为每个极坐标对象添加颜色值
+            });
+        }
+
+        // 定义一个函数来分割数组
+        function chunkArray(array, chunkSize) {
+        const chunks = [];
+        for (let i = 0; i < array.length; i += chunkSize) {
+            chunks.push(array.slice(i, i + chunkSize));
+        }
+        return chunks;
+        }
+
+        // 这个函数的作用是将多个元素压缩成一个元素——但是有问题……压缩完之后再刷新重新渲染容易出现不可预知的bug
+        function mergeImagesOnCanvas(canvas) {
+            // 临时保存背景对象
+            var originalBackground = canvas.backgroundImage;
+            // 临时移除背景对象
+            canvas.backgroundImage = null;
+            // 重新渲染画布以应用背景对象的移除
+            canvas.renderAll();
+
+            // 导出当前画布的内容为图片URL（此时不包括背景对象）
+            var canvasURL = canvas.toDataURL({
+                format: 'png',
+                quality: 1
+            });
+
+            // 恢复背景对象
+            canvas.backgroundImage = originalBackground;
+            // 重新渲染画布以显示背景对象
+            canvas.renderAll();
+
+            // 清除画布上的所有对象（除了背景对象）
+            canvas.getObjects().forEach(function(obj) {
+                if (obj !== canvas.backgroundImage) {
+                    canvas.remove(obj);
+                }
+            });
+
+            // 使用导出的图片URL创建一个新的fabric.Image对象
+            fabric.Image.fromURL(canvasURL, function(newImage) {
+                // 将新的图像对象添加到画布上
+                canvas.add(newImage);
+                // 确保新图像对象在画布上的所有其他对象之下
+                newImage.moveTo(0);
+                // 渲染画布以显示更改
+                canvas.renderAll();
+            });
+        }
+
+        // 这个函数的作用是清除画布上所有内容并回到初始状态
+        function clearCanvasCompletely(canvas) {
+            // 清除画布上的所有对象
+            objexts = canvas.getObjects();
+            console.log(objexts);
+            
+            objexts.forEach(function(obj) {
+                canvas.remove(obj);
+            });
+
+            // 清除画布背景图
+            //canvas.setBackgroundImage(null, canvas.renderAll.bind(canvas));
+
+            // 清除画布背景色
+            canvas.setBackgroundColor(null, canvas.renderAll.bind(canvas));
+
+            // 重新渲染画布
+            canvas.renderAll();
+        }
+
+
+
+
+        
+        // 你的图片的Base64编码
+        function handleBase64Image(base64Image) {
+            console.log("准备开始绘制图片");
+            // 从 URL 加载图像，并处理图像数据
+            fabric.Image.fromURL(base64Image, function(oImg) {
+                // 创建临时 canvas 用于处理图像
+                var tempCanvas = document.createElement('canvas');
+                tempCanvas.width = oImg.width; // 设置临时 canvas 的宽度为图像宽度
+                tempCanvas.height = oImg.height; // 设置临时 canvas 的高度为图像高度
+                picwidth = oImg.width;//设置全局变量为图片的宽度
+                picheight = oImg.height;//设置全局变量为图片的高度
+                var ctx = tempCanvas.getContext('2d'); // 获取临时 canvas 的 2D 绘图上下文
+                console.log("图片的宽度是", oImg.width, "准备开始绘制图片");
+                // 绘制图像到临时 canvas 上
+                ctx.drawImage(oImg.getElement(), 0, 0, oImg.width, oImg.height);
+
+                // 获取图像的像素数据
+                var imageData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                var data = imageData.data; // 像素数据数组
+
+                // 遍历图像的像素数据
+                for (var y = 0; y < tempCanvas.height; y++) {
+                    var row = [];
+                    for (var x = 0; x < tempCanvas.width; x++) {
+                        var index = (y * tempCanvas.width + x) * 4; // 计算像素索引
+                        var r = data[index]; // 获取红色通道值
+                        var g = data[index + 1]; // 获取绿色通道值
+                        var b = data[index + 2]; // 获取蓝色通道值
+
+                        // 将 RGB 转换为十六进制颜色值
+                        var hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+
+                        // 将像素点的信息（坐标和颜色）存储到行数组中
+                        row.push({x: x, y: y, color: hex});
+                    }
+                    // 将行数组添加到全局像素数据数组中
+                    pixelDataArray.push(row);
+                }
+
+                // 此时，pixelDataArray 已经包含了图像的像素数据
+
+                // 假设oImg是已加载的图像对象
+                // 首先，获取页面的宽度和高度，减去200
+                var pageWidth = window.innerWidth-50;
+                var pageHeight = window.innerHeight-50;
+
+                // 检查图像的宽度和高度是否小于页面的宽度和高度（都减去了200）
+                if (oImg.width < pageWidth && oImg.height < pageHeight) {
+                    // 如果图像的宽度和高度都小于页面的宽度和高度，直接使用图像的尺寸
+                    canvas.setWidth(oImg.width);
+                    canvas.setHeight(oImg.height);
+                } else {
+                    // 如果图像的任一尺寸大于页面的对应尺寸，使用页面的尺寸
+                    canvas.setWidth(pageWidth);
+                    canvas.setHeight(pageHeight - brushToolsHeight);
+                    // 计算缩放比例，使得画布适合窗口大小
+                    var scaleX = pageWidth / oImg.width;
+                    var scaleY = (pageHeight - brushToolsHeight) / oImg.height;
+                    var scale = Math.min(scaleX, scaleY);
+
+                    // 应用缩放到画布
+                    canvas.setZoom(scale);
+
+                    // 调整视口，使画布居中
+                    var viewport = canvas.viewportTransform;
+                    viewport[4] = (pageWidth - oImg.width * scale) / 2;
+                    viewport[5] = (pageHeight - brushToolsHeight - oImg.height * scale) / 2;
+
+                    // 应用视口变换
+                    canvas.setViewportTransform(viewport);
+                }
+
+                oImg.imageSmoothing = false;
+            
+                // 设置背景图片并调整其大小以适应画布
+                canvas.setBackgroundImage(oImg, canvas.renderAll.bind(canvas), {
+                    scaleX: 1,//不调整
+                    scaleY: 1,
+                    // 在这里也可以设置imageSmoothingEnabled为false，但主要是通过oImg.imageSmoothing来控制
+                    imageSmoothingEnabled: false
+                });
+                console.log("视窗大小为",window.innerWidth,window.innerHeight,"画布大小为",document.getElementById('c').width,document.getElementById('c').height,"画布样式大小为",document.getElementById('c').style.width,document.getElementById('c').style.height,"视窗位于",document.getElementById('c').getBoundingClientRect().left,document.getElementById('c').getBoundingClientRect().top);
+                // 输出大哥前视窗中心位于画布的坐标
+                console.log("视窗中心位于",canvas.getVpCenter().x,canvas.getVpCenter().y);
+            });
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        // 图形功能的的代码主要都写在这里 //
+
+
+        // 绘制的时候处理画笔路径点坐标
+        function brushpath(options){
+            var path = options.path; // 获取绘制的路径
+            canvas.remove(path); // 移除原始路径
+
+            // 使用Map来存储已处理的像素点，以便快速去重
+            const processedPixels = new Map();
+
+            path.path.forEach(function(point, index) {
+                if (index > 0) {
+                    var prevPoint = path.path[index - 1];
+                    var linePixels = getLinePixels({x: prevPoint[1], y: prevPoint[2]}, {x: point[1], y: point[2]});
+                    linePixels.forEach(function(pixel) {
+                        var pixelKey = pixel.x + "," + pixel.y;
+                        if (!processedPixels.has(pixelKey)) {
+                            var allCirclePixels = getCircleCoveredPixels(pixel, canvas.freeDrawingBrush.width);
+                            allCirclePixels.forEach(function(point) {
+                                var circlePixelKey = point.x + "," + point.y;
+                                processedPixels.set(circlePixelKey, true);
+                            });
+                        }
+                    });
+                } else {
+                    getCircleCoveredPixels({x: point[1], y: point[2]}, canvas.freeDrawingBrush.width).forEach(function(point) {
+                        var circlePixelKey = point.x + "," + point.y;
+                        processedPixels.set(circlePixelKey, true);
+                    });
+                }
+            });
+
+            // 优化：直接在forEach中构造对象，避免后续的map操作
+            var uniquePixels = [];
+            processedPixels.forEach((value, key) => {
+                var parts = key.split(",");
+                uniquePixels.push({ x: parseInt(parts[0], 10), y: parseInt(parts[1], 10) });
+            });
+            ProcessDrawingPointSetList(uniquePixels);
+        };
+
+
+
+        // 添加折线到画布
+        function addPolyline(points) {
+            currentObject = new fabric.Polyline(points, {
+                stroke: canvas.freeDrawingBrush.color,
+                strokeWidth: 1,
+                fill: hexToRgba(canvas.freeDrawingBrush.color, 0.3),//"transparent"是透明
+                selectable: false,
+                evented: false,
+                objectCaching: false
+            });
+            canvas.add(currentObject);
+        }
+
+        // 更新折线的点
+        function updatePolyline(points) {
+            if (currentObject) {
+                currentObject.set({ points: points });
+                canvas.requestRenderAll();
+            }
+        }
+
+        // 完成多边形的绘制
+        function finishPolygon() {
+            if (tempPoints.length < 3) return;
+            const polygon = new fabric.Polygon(tempPoints, {
+                stroke: canvas.freeDrawingBrush.color,
+                strokeWidth: 1,
+                fill: hexToRgba(canvas.freeDrawingBrush.color, 0.3),//之前写的时候都没想过这个函数还能在其他地方派上用场！！
+                selectable: true,
+                evented: true,
+            });
+            canvas.add(polygon);
+            canvas.remove(currentObject);
+            tempPoints = [];
+            currentObject = null;
+            consoleWrappedPoints(polygon);
+        }
+
+        // 添加矩形到画布
+        function addRectangle(startPoint) {
+            currentObject = new fabric.Rect({
+                left: startPoint.x,
+                top: startPoint.y,
+                width: 0,
+                height: 0,
+                stroke: canvas.freeDrawingBrush.color,
+                strokeWidth: 1,
+                fill: hexToRgba(canvas.freeDrawingBrush.color, 0.3),
+                selectable: true,
+                evented: true,
+            });
+            canvas.add(currentObject);
+        }
+
+        // 更新矩形的尺寸
+        function updateRectangle(endPoint) {
+            if (currentObject) {
+                currentObject.set({
+                    width: Math.abs(endPoint.x - tempPoints[0].x),
+                    height: Math.abs(endPoint.y - tempPoints[0].y),
+                    // 这两必须禁掉，不然重新渲染的时候会出现边框很丑
+                    hasControls: false, // 禁用控制点
+                    hasBorders: false // 禁用边界
+                });
+                if (endPoint.x < tempPoints[0].x) {
+                    currentObject.set({ left: endPoint.x });
+                }
+                if (endPoint.y < tempPoints[0].y) {
+                    currentObject.set({ top: endPoint.y });
+                }
+                canvas.requestRenderAll();
+            }
+        }
+
+        // 完成矩形的绘制
+        function finishRectangle() {
+            if (tempPoints.length !== 1) return;
+
+            // 移除当前的矩形对象
+            canvas.remove(currentObject);
+
+            // 创建并添加新的矩形对象
+            const newRectangle = new fabric.Rect({
+                left: currentObject.left,
+                top: currentObject.top,
+                width: currentObject.width,
+                height: currentObject.height,
+                stroke: canvas.freeDrawingBrush.color,
+                strokeWidth: 1,
+                fill: hexToRgba(canvas.freeDrawingBrush.color, 0.3),
+                selectable: true,
+                evented: true,
+                originX: 'left',
+                originY: 'top'
+            });
+            canvas.add(newRectangle);
+
+            // 清空临时点数组和当前对象
+            tempPoints = [];
+            currentObject = null;
+
+            // 传入新创建的矩形对象
+            consoleWrappedPoints(newRectangle);
+        }
+
+        // 添加圆形到画布
+        function addCircle(startPoint) {
+            currentObject = new fabric.Circle({
+                left: startPoint.x,
+                top: startPoint.y,
+                radius: 0,
+                stroke: canvas.freeDrawingBrush.color,
+                strokeWidth: 1,
+                fill: hexToRgba(canvas.freeDrawingBrush.color, 0.3),
+                selectable: true,
+                evented: true,
+                originX: 'center',
+                originY: 'center'
+            });
+            canvas.add(currentObject);
+        }
+
+        // 更新圆形的半径
+        function updateCircle(endPoint) {
+            if (currentObject) {
+                // 计算起点和终点之间的距离，作为直径
+                const diameter = Math.sqrt(Math.pow(endPoint.x - tempPoints[0].x, 2) + Math.pow(endPoint.y - tempPoints[0].y, 2));
+                const radius = diameter / 2; // 半径是直径的一半
+
+                // 设置圆形的半径
+                currentObject.set({ radius: radius });
+
+                // 计算并设置圆形的中心点位置
+                currentObject.set({
+                    left: (tempPoints[0].x + endPoint.x) / 2, // 圆心的X坐标
+                    top: (tempPoints[0].y + endPoint.y) / 2, // 圆心的Y坐标
+                    hasControls: false, // 禁用控制点
+                    hasBorders: false // 禁用边界
+                });
+
+                // 请求画布重新渲染
+                canvas.requestRenderAll();
+            }
+        }
+
+        // 完成圆形的绘制
+        function finishCircle() {
+            if (tempPoints.length !== 1) return;
+
+            // 移除当前的圆形对象
+            canvas.remove(currentObject);
+
+            // 创建并添加新的圆形对象
+            const newCircle = new fabric.Circle({
+                left: currentObject.left,
+                top: currentObject.top,
+                radius: currentObject.radius,
+                stroke: canvas.freeDrawingBrush.color,
+                strokeWidth: 1,
+                fill: hexToRgba(canvas.freeDrawingBrush.color, 0.3),
+                selectable: true,
+                evented: true,
+                originX: 'center',
+                originY: 'center'
+            });
+            canvas.add(newCircle);
+
+            // 清空临时点数组和当前对象
+            tempPoints = [];
+            currentObject = null;
+
+            // 传入新创建的圆形对象
+            consoleWrappedPoints(newCircle);
+        }
+
+
+        // 函数用于获取多边形内部所有点的集合（使用射线法，说句实话我还是理解不能这个代码到底和书上的射线法有什么关系）
+        function getPointsInsidePolygon(polygon) {
+            const points = polygon.get('points'); // 获取多边形的顶点
+            const boundingRect = polygon.getBoundingRect(true, true); // 获取多边形的包围盒，第一个参数为true表示是相对于画布的位置坐标
+            console.log(boundingRect.left,boundingRect.top,boundingRect.width,boundingRect.height);
+            const polygonPoints = points
+            points.forEach(element => {
+                console.log("X的坐标为：",element.x,"Y的坐标为：",element.y)
+            });
+
+            const pointsInside = [];
+
+            function pointInPolygon(point, polygonPoints) {
+                let inside = false;
+                const n = polygonPoints.length
+
+                function isPointOnSegment(p, p1, p2) {
+                    const onSegment = (p[0] === p1[0] && p[1] === p1[1]) || (p[0] === p2[0] && p[1] === p2[1]);
+                    return onSegment;
+                }
+
+                for (let i = 0, j = n - 1; i < n; j = i++) {
+                    const xi = polygonPoints[i].x, yi = polygonPoints[i].y;
+                    const xj = polygonPoints[j].x, yj = polygonPoints[j].y;
+
+                    if (isPointOnSegment([point.x, point.y], [xi, yi], [xj, yj])) {
+                        return true;
+                    }
+
+                    const intersect = (yi > point.y) !== (yj > point.y) &&
+                                    point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
+
+                    if (intersect) inside = !inside;
+                }
+                return inside;
+            }
+
+            // 遍历包围盒内所有点，判断是否在多边形内部
+            for (let x = boundingRect.left; x <= boundingRect.left + boundingRect.width; x++) {
+                for (let y = boundingRect.top; y <= boundingRect.top + boundingRect.height; y++) {
+                    if (pointInPolygon({ x, y }, polygonPoints)) {
+                        pointsInside.push({ x:x, y:y }); // 将在多边形内部的点加入集合
+                    }
+                }
+            }
+            console.log("包裹的坐标点数量为",pointsInside.length);
+            return pointsInside;
+        }
+
+
+
+        // 计算并输出图形包裹的点的集合
+        function consoleWrappedPoints(object) {
+            let pointsCollection = [];
+
+            // 根据对象类型获取不同的边界和点集合
+            if (object.type === 'rect') {
+                // 矩形
+                const minX = Math.floor(object.left);
+                const minY = Math.floor(object.top);
+                const maxX = Math.ceil(object.left + object.width);
+                const maxY = Math.ceil(object.top + object.height);
+
+                for (let x = minX; x <= maxX; x++) {
+                    for (let y = minY; y <= maxY; y++) {
+                        pointsCollection.push({ x, y });
+                    }
+                }
+            } else if (object.type === 'circle') {
+                // 圆形
+                const centerX = object.left;
+                const centerY = object.top;
+                console.log(centerX, centerY);
+                const radius = object.radius;
+
+                for (let x = Math.floor(centerX - radius); x <= Math.ceil(centerX + radius); x++) {
+                    for (let y = Math.floor(centerY - radius); y <= Math.ceil(centerY + radius); y++) {
+                        if (Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2)) <= radius) {
+                            pointsCollection.push({ x, y });
+                        }
+                    }
+                }
+            } else if (object.type === 'polygon') {
+                // 多边形
+                const polygonPoints = getPointsInsidePolygon(object);
+
+                polygonPoints.forEach(point => {
+                    pointsCollection.push({ x: Math.round(point.x), y: Math.round(point.y) });
+                });
+            }
+
+
+            // 将点坐标对象列表传入 drawPixelsOnCanvas 函数
+            ProcessDrawingPointSetList(pointsCollection);
+
+            // 删除这个对象
+            canvas.remove(object);
+
+            // 禁用画布的默认右键菜单行为，以免与完成绘制的操作冲突
+            canvas.upperCanvasEl.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+            });
+        }
+
+
+        function fillTool(pointer) {
+            filltoolflag = true
+            var fillToolBottom = document.getElementById('draw-filltool');
+            fillToolBottom.innerHTML = ""
+            fillToolBottom.innerText = "正在填色"; // 设置文本为“填色中”
+            fillToolBottom.style.fontSize = '10px'; // 设置文本大小为12px
+
+            if (FF) {
+                console.log('FF已经存在，更新画布');
+                FF.updateOffscreenCanvas();
+            } else {
+                console.log('FF不存在，创建新实例');
+                FF = FastFill.create({
+                    elementId: 'c',
+                    canvasSize: [picwidth, picheight],
+                    fillColor: [170, 0, 0, 255],//这个暂时用不到，设置成画笔颜色的话，还得转换一下，想想就让它默认得了
+                    tolerance: fillToleranceValue,
+                    skipDistance: skipPixelsValue,
+                    offscreenCanvasVisible: false,
+                    isFabricCanvas: true,
+                    fabricCanvas: canvas
+                });
+            }
+            FF.loaded(res => {
+                // 直接在当前位置处理和转换点坐标，一获取到结果立刻转化成整数
+                returnpoints = FF.manualFill(pointer.x, pointer.y).map(point => ({
+                    x: Math.round(point.x),
+                    y: Math.round(point.y)
+                }));
+                // 过滤掉不在画布范围内的点坐标对象
+                ProcessDrawingPointSetList(returnpoints);
+                fillToolBottom.innerHTML = '<i class="fas fa-fill-drip"></i>'; // 填色完成后还原文本
+                filltoolflag = false
+            });
+        }
+
+        function fillToolclose() {
+            FF.close();
+            FF = null;
+        }
+
+
+
+        // 监听函数和监听过程主要放这里 //
+
+
+        var isDragging = false; // 定义一个标志，用于判断用户是否正在拖动画布
+        var isMouseDown = false; // 定义一个标志，用于判断鼠标是否按下
+        var lastPosX = 0; // 记录上一次鼠标的X位置
+        var lastPosY = 0; // 记录上一次鼠标的Y位置
+
+
+        function  enableZoom(opt) {
+            var delta = opt.e.deltaY; // 获取鼠标滚轮的滚动值，向上滚动为负值，向下滚动为正值
+
+            var zoom = canvas.getZoom(); // 获取当前画布的缩放比例
+            zoom *= 0.999 ** delta; // 根据滚动值调整缩放比例，滚轮每滚动一单位，缩放比例变化0.1%
+
+            if (zoom > 20) zoom = 20; // 限制最大缩放比例为20倍，防止过度放大
+            if (zoom < 0.01) zoom = 0.01; // 限制最小缩放比例为0.01倍，防止过度缩小
+
+            // 应用新的缩放比例，以鼠标当前位置为中心进行缩放
+            canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+
+            // 禁用图像平滑处理，保持像素点清晰
+            canvas.imageSmoothingEnabled = false;
+
+            opt.e.preventDefault(); // 阻止默认的滚轮滚动行为，避免滚动画布时页面也跟着滚动
+            opt.e.stopPropagation(); // 阻止事件冒泡，避免滚轮事件影响到其他元素
+        }
+
+
+
+        // 处理鼠标右键点击事件
+        function handleRightClick(e) {
+            if (e.button === 2) { // 右键点击
+                if (isDragging) return; // 如果按下 alt 键，进入拖动模式，不执行结束绘制操作
+                e.preventDefault();
+                if (currentShape === 'polygon' && tempPoints.length >= 3) {
+                    finishPolygon();
+                } else if (currentShape === 'rectangle' && tempPoints.length === 1) {
+                    finishRectangle();
+                } else if (currentShape === 'circle' && tempPoints.length === 1) {
+                    finishCircle();
+                } 
+            }
+        }
+
+        // 处理鼠标按下事件
+        function handleMousedown(options) {
+            var e = options.e;
+            isMouseDown = true; // 设置鼠标按下标志为true
+            lastPosX = e.clientX;
+            lastPosY = e.clientY;
+            console.log("进入鼠标按下事件")
+            // 直接检测alt键是否按下
+            if (e.altKey) {
+                isDragging = true; // 如果按下 alt 键，设置拖动标志为true
+                canvas.isDrawingMode = false; // 如果按下 alt 键，设置拖动标志为true
+                return; // 并返回，不执行绘制操作
+            } else {
+                isDragging = false; // 如果没有按下 alt 键，设置拖动标志为false
+            }
+            const pointer = canvas.getPointer(options.e);
+            if (currentShape === 'polygon') {
+                tempPoints.push(pointer);
+                if (tempPoints.length === 1) {
+                    addPolyline([pointer]);
+                } else {
+                    updatePolyline(tempPoints);
+                }
+            } else if (currentShape === 'rectangle' && tempPoints.length === 0) {
+                tempPoints.push(pointer);
+                addRectangle(pointer);
+            } else if (currentShape === 'circle' && tempPoints.length === 0) {
+                tempPoints.push(pointer);
+                addCircle(pointer);
+            } else if (currentShape === 'filltool' && filltoolflag === false) {
+                console.log('触发filltool');
+                fillTool(pointer);
+            }
+        }
+
+
+        // 处理鼠标移动事件
+        function handleMouseMove(options) {
+            if (isDragging && isMouseDown) { // 只有当处于拖动模式并且鼠标按下时才处理拖动
+                    var e = options.e;
+                    var vpt = canvas.viewportTransform;
+                    vpt[4] += e.clientX - lastPosX;
+                    vpt[5] += e.clientY - lastPosY;
+                    canvas.requestRenderAll();
+                    lastPosX = e.clientX;
+                    lastPosY = e.clientY;
+                }
+            if (isDragging) return; // 如果按下 alt 键，不执行绘制操作
+            const pointer = canvas.getPointer(options.e);
+            if (currentShape === 'polygon' && tempPoints.length > 0 && options.target === null) {
+                const tempPointsWithCurrent = [...tempPoints, pointer];
+                updatePolyline(tempPointsWithCurrent);
+            } else if (currentShape === 'rectangle' && tempPoints.length === 1) {
+                updateRectangle(pointer);
+            } else if (currentShape === 'circle' && tempPoints.length === 1) {
+                updateCircle(pointer);
+            } 
+        }
+
+        //监听鼠标移动事件，回传信息给Qt端
+        function handleMouseMovetoQt(event) {
+            if (document.hasFocus() === false) {//鼠标在网页上移动的时候。如果窗口没有焦点，则聚焦窗口
+                window.focus();}
+            if (event.e.shiftKey) { // 检查是否按下了Shift键
+                var pointer = canvas.getPointer(event.e);
+                const mouseX = pointer.x;
+                const mouseY = pointer.y;
+
+                // 将画布上的坐标转换为极坐标
+                const { radius, degree } = calculateRadiusAndDegreeFromCanvas(mouseX, mouseY, canvas);
+                console.log(`半径: ${radius}, 角度: ${degree}, 鼠标坐标: (${mouseX}, ${mouseY})`);
+
+                if (coordinateFlag === "polar") {
+                    sendListToPython([radius, degree]);
+                } else if (coordinateFlag === "rect") {
+                    sendListToPython([mouseX, mouseY]);
+                }
+            }
+        }
+
+        // 监听鼠标释放事件函数定义
+        function handleMouseUp(options) {
+            isMouseDown = false; // 设置鼠标按下标志为false
+        }
+
+        // 键盘抬起事件函数定义
+        function handleAltKeyUp(e) {
+            if (e.key === 'Alt') { // 如果松开的是Alt键
+                if (currentShape === 'brush'){
+                    canvas.isDrawingMode = true; // 恢复画布的绘制模式
+                }
+                isDragging = false; // 结束拖动模式
+            }
+        }
+
+        // 键盘按下事件函数定义
+        function handleKeyDown(e) {
+            if (e.key === 'Alt') { // 如果按下的是Alt键
+                e.preventDefault(); // 防止默认行为
+                if (currentShape === 'brush'){
+                    canvas.isDrawingMode = false; // 禁用画布的绘制模式
+                }
+                isDragging = true; // 启动拖动模式
+            }
+            if (e.key === 'Control') { // 如果按下的是Ctrl键
+                e.preventDefault(); // 防止默认行为
+                const zoom = canvas.getZoom(); // 获取当前画布的缩放值
+                const viewportCenter = canvas.getVpCenter(); // 获取当前视窗中心点
+                var polarpoint = convertXYToPolarCoordinates(viewportCenter.x, viewportCenter.y);
+                console.log(`当前画布缩放值: ${zoom}`);
+                console.log(`当前视窗中心对应于画布的坐标: (${viewportCenter.x}, ${viewportCenter.y})`);
+                console.log(`当前视窗中心对应的极坐标: 半径 ${polarpoint.radius}, 角度 ${polarpoint.degree}`);
+                console.log(`当前极坐标标识符: ${coordinateFlag}`);
+                if (coordinateFlag === "polar") {
+                    sendCanvasPositionToPython([zoom, polarpoint.radius, polarpoint.degree]);
+                } else if (coordinateFlag === "rect") {
+                    sendCanvasPositionToPython([zoom, viewportCenter.x, viewportCenter.y]);
+                }
+            }
+        }
+
+
+
+
+
+
+
+        {// 启动监听事件
+            // 画布相关——监听画笔路径，将其传入画笔路径处理函数
+            canvas.on('path:created', brushpath)
+
+            // 监听鼠标抬起事件
+            canvas.on('mouse:down', handleMousedown);
+            // 监听鼠标移动事件（拖动操作和传递信息给Qt）
+            canvas.on('mouse:move', handleMouseMove);
+            canvas.on('mouse:move', handleMouseMovetoQt)
+            // 监听鼠标滚轮事件
+            canvas.on('mouse:wheel',enableZoom);
+            // 监听鼠标释放事件
+            canvas.on('mouse:up', handleMouseUp);
+            // 监听鼠标右键点击事件
+            document.addEventListener('pointerdown', handleRightClick)
+            // 监听键盘松开事件
+            document.addEventListener('keyup', handleAltKeyUp);
+            // 监听键盘按下事件
+            document.addEventListener('keydown', handleKeyDown);
+        }
+
+    </script>
+</body>
+</html>
