@@ -55,8 +55,8 @@ It only supports Chinese now, because tool's annotations are too large to transl
 - 支持对目录下的文件批量导出参考图（批量对每一个文件用自定义绘图函数绘制出matplotlib图像后导出到对应文件夹）。
   - Support batch exporting reference images for files in a directory (batch drawing matplotlib images for each file using a custom drawing function and exporting them to the corresponding folder).
 
-- 支持对目录下的文件批量预处理（批量对每一个文件按照预设条件生成一个对应的包含“Musk”键的npz文件）。
-  - Support batch preprocessing for files in a directory (batch generating a corresponding npz file with the "Musk" key for each file according to preset conditions).
+- 支持对目录下的文件批量预处理（批量对每一个文件按照预设条件生成一个对应的包含“Musk”键和“Musk_nan”键的npz文件）。
+  - Support batch preprocessing for files in a directory (batch generating a corresponding npz file with the "Musk" and "Musk_nan" keys for each file according to preset conditions).
 
 - 使用配置文件，可以批量修改配置项。
   - Use configuration files to batch modify configuration items.
