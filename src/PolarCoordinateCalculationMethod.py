@@ -2,7 +2,7 @@ import math
 import numpy as np
 from PIL import Image
 """
-这是极坐标和图像坐标相互转化算法的初稿pyhon和html都用的这个算法，实际用的代码增加了了一堆numpy优化性能导致算法看不懂了，但是思路是没变的，留这个初稿备份
+这是极坐标和图像坐标相互转化算法的初稿pyhon和html都用的这个算法，实际用的代码增加了一堆numpy优化性能导致算法看不懂了，但是思路是没变的，留这个初稿备份
 """
 # 将直角坐标 (x, y) 转换为极坐标 (r, theta)
 def 直角坐标转换为极坐标(x, y):
