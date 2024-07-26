@@ -1,2 +1,3 @@
-    chcp 65001 
-    ./venv/python.exe MainWindow.py
+chcp 65001 
+.\venv\python.exe MainWindow.py
+pause
