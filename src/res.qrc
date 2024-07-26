@@ -9,6 +9,7 @@
         <file alias="WeatherIconThunderstorm">src/WeatherIconThunderstorm.txt</file>
         <file alias="base64pictemp">src/base64pictemp.txt</file>
     </qresource>
+    
     <qresource prefix="/temple">
         <file alias="painter">temple/MainDrawingAreaContainer.html</file>
         <file alias="mask">temple/ReferenceImageContainer.html</file>
