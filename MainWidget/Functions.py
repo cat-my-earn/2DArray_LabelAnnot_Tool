@@ -1354,14 +1354,15 @@ class FunctionsAll:
         
     
     def 显示遮罩函数(self):
+        self.立刻显示绘图区遮罩 = True
         # 让网页清空遮罩，然后将colormask数组传递给js，让js重新绘制遮罩，直接对painter对象跑js代码
         self.ui.painter.page().runJavaScript("clearCanvasCompletely(canvas);")  # 清空遮罩
         self.Main.bridge.requestMuskArrayFromPython()  # 向js发送颜色数组
-        self.立刻显示绘图区遮罩 = True
 
 
     # 定义一个内部函数来处理重新绘制遮罩
     def 重新绘制遮罩(self):
+        logger.debug(f"立刻显示绘图区遮罩：{self.立刻显示绘图区遮罩}")
         if self.立刻显示绘图区遮罩:
             self.ui.painter.page().runJavaScript("drawColorArrayOnCanvas(maskArray_color);")  # 重新绘制遮罩
             self.立刻显示绘图区遮罩 = False
