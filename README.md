@@ -23,6 +23,9 @@ It only supports Chinese now, because tool's annotations are too large to transl
 - 可以自定义标注类型和绘图时对应的颜色。
   - Customize annotation types and the corresponding colors when drawing.
 
+- 可以自定义被标注的数据点范围，通过将尺寸相同的零和一构成的数组以键“Musk_nan”添加到npz文件中实现。
+  - Customize the range of data points to be annotated by adding arrays consisting of zeros and ones with the same size under the key “Musk_nan” in the npz file.
+
 - 可以加载多个二维数组，由matplotlib绘制图像，不同图像比较以确定标注类型。
   - Load multiple 2D arrays, plot images with matplotlib, and compare different images to determine annotation types.
 
