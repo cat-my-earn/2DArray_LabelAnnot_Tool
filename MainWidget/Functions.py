@@ -297,8 +297,6 @@ class FunctionsAll:
         self.ui.whitepic = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAFiUAABYlAUlSJPAAAAAYSURBVBhXY/z//+9/BihggtJggMRhYAAAkcIEACsOnEUAAAAASUVORK5CYII="
         self.ui.mask.setHtml(self.Main.path_other_html.replace("base64数据替换占位符", ui.base64pictemp).replace("遮罩图标志位", "已开启遮罩图").replace("crosshairPosition = { x: positionArray[0], y: positionArray[1] };", "crosshairPosition = { x: positionArray[2], y: positionArray[3] };").replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
 
-
-
         for webview in self.webviews:
             webview.setHtml(self.Main.path_other_html.replace("base64数据替换占位符", ui.base64pictemp).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
 
