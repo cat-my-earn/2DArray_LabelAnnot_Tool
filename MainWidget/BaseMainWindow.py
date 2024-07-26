@@ -53,7 +53,7 @@ class BaseMainWindow(FluentWindow):
                 self.api.根据遮罩数组显示参考图()
             elif event.key() == Qt.Key_P:  # P键，预处理
                 self.api.预处理程序启动()
-            elif event.key() == Qt.Key_X:  # X键，清空遮罩
+            elif event.key() == Qt.Key_X:  # Y键，清空遮罩
                 self.api.消除遮罩函数()
             elif event.key() == Qt.Key_D:  # D键，显示原始数组参考图
                 self.api.显示原始数组参考图()

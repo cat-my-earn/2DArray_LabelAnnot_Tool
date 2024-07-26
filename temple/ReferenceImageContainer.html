@@ -48,7 +48,6 @@
 
 
                 // 请求Python发送列表
-                // bridge.requestListFromPython();
             });
         });
         function sendCorrectionCoordinatesToPython(x, y) {
@@ -264,7 +263,6 @@
             crosshairV.style.height = '100%';
         }
 
-        // 示例：在画布的(100, 100)位置绘制十字线
         // 注意：实际使用时，应根据需要调用此函数
         function updateCrosshairPosition(positionArray) {
             // 更新全局变量crosshairPosition的值
@@ -274,8 +272,6 @@
             // 使用更新后的crosshairPosition调用drawCrosshair函数
             drawCrosshair(crosshairPosition);
         }
-
-        // updateCrosshairPosition([100, 100]);
 
         // 这个函数的作用是启用画布的放大缩小功能
         function enableZoom() {
