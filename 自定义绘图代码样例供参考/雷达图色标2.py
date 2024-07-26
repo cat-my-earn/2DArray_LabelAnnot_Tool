@@ -93,7 +93,7 @@ def matpainter(data, data_type, use_polar, file_name="",dpi=100, save_path=None,
         # 保存图形到子文件夹，使用JPG格式
         plt.show()
     else:
-        图像类型对应的源文件的key = {
+        nametokey = {
 "雷达反射率": "Z1",
 "多普勒速度": "V1",
 "速度谱宽": "W1",
@@ -136,7 +136,7 @@ def matpainter(data, data_type, use_polar, file_name="",dpi=100, save_path=None,
         max_value = np.nanmax(Z)
 
         # 计算色标区间
-        intervals = fields_intervals[图像类型对应的源文件的key[data_type]]
+        intervals = fields_intervals[nametokey[data_type]]
         boundaries = np.linspace(min_value, max_value, intervals + 1)
         cmap = mcolors.ListedColormap(fields_colors[图像类型对应的源文件的key[data_type]])
         norm = mcolors.BoundaryNorm(boundaries=boundaries, ncolors=intervals)
