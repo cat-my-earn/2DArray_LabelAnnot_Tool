@@ -1050,12 +1050,45 @@ class FunctionsAll:
         # 执行回调函数
         on_base64_ready(base64data)
 
-        # # 启动线程
-        # thread = threading.Thread(target=线程任务)
-        # thread.start()
 
 
-
+    # 控件名称	控件类型	中文意思
+    # Dialog	QDialog	对话框
+    # widget	QWidget	小部件
+    # verticalLayout	QVBoxLayout	垂直布局
+    # scrollArea	QScrollArea	滚动区域
+    # scrollAreaWidgetContents_2	QWidget	滚动区域内容容器
+    # painter	QWebEngineView	绘图器
+    # mask	QWebEngineView	遮罩图层
+    # ZDRphoto	QWebEngineView	ZDR照片
+    # Vphoto	QWebEngineView	V照片
+    # Wphoto	QWebEngineView	W照片
+    # SNRphoto	QWebEngineView	SNR照片
+    # LDRphoto	QWebEngineView	LDR照片
+    # widget_8	QWebEngineView	小部件8
+    # openfiles	PrimaryPushButton	打开文件按钮
+    # previousfile	QPushButton	上一个文件按钮
+    # nextfile	QPushButton	下一个文件按钮
+    # clearmask	QPushButton	清除遮罩按钮
+    # showall	QPushButton	显示全部按钮
+    # outputclearpic	QPushButton	输出清晰图片按钮
+    # showmask	QPushButton	显示遮罩按钮
+    # selectfiles	PrimaryPushButton	选择文件按钮
+    # savepath	SearchLineEdit	保存路径输入框
+    # savefile	QPushButton	保存文件按钮
+    # refresh	QPushButton	刷新按钮
+    # page_selector	QComboBox	页面选择器
+    # preprocessing_code	SearchLineEdit	预处理代码输入框
+    # preprocessing	QPushButton	预处理按钮
+    # correctingposition	QPushButton	校正位置按钮
+    # showfiles	QComboBox	显示文件选择器
+    # loadlastfile	QPushButton	加载最后一个文件按钮
+    # refreshmask    QPushButton	刷新遮罩按钮
+    # choosemaskselect    QPushButton	选择遮罩下拉菜单
+    # importpainter    QPushButton	导入自定义绘图函数按钮
+    # savefileall    QPushButton	保存文件夹下所有渲染的参考图像按钮
+    # showedge   QPushButton	显示边缘提取图像按钮
+    # preprocessingall    QPushButton	批量预处理按钮
 
 
     # 用来给按钮绑定函数的
@@ -2561,54 +2594,7 @@ else:
                         self.preprocessing_progressflyout.set_files_processed(filecount,os.path.basename(path))
 
 
-
-            
-
-
-        #ui.ui.widget.load(QUrl.fromLocalFile(path1))
-        #ui.ui.widget.load(QUrl("https://cdn.bootcdn.net/ajax/libs/fabric.js/5.3.1/fabric.js"))
-
-
-    # 控件名称	控件类型	中文意思
-    # Dialog	QDialog	对话框
-    # widget	QWidget	小部件
-    # verticalLayout	QVBoxLayout	垂直布局
-    # scrollArea	QScrollArea	滚动区域
-    # scrollAreaWidgetContents_2	QWidget	滚动区域内容容器
-    # painter	QWebEngineView	绘图器
-    # mask	QWebEngineView	遮罩图层
-    # ZDRphoto	QWebEngineView	ZDR照片
-    # Vphoto	QWebEngineView	V照片
-    # Wphoto	QWebEngineView	W照片
-    # SNRphoto	QWebEngineView	SNR照片
-    # LDRphoto	QWebEngineView	LDR照片
-    # widget_8	QWebEngineView	小部件8
-    # openfiles	PrimaryPushButton	打开文件按钮
-    # previousfile	QPushButton	上一个文件按钮
-    # nextfile	QPushButton	下一个文件按钮
-    # clearmask	QPushButton	清除遮罩按钮
-    # showall	QPushButton	显示全部按钮
-    # outputclearpic	QPushButton	输出清晰图片按钮
-    # showmask	QPushButton	显示遮罩按钮
-    # selectfiles	PrimaryPushButton	选择文件按钮
-    # savepath	SearchLineEdit	保存路径输入框
-    # savefile	QPushButton	保存文件按钮
-    # refresh	QPushButton	刷新按钮
-    # page_selector	QComboBox	页面选择器
-    # preprocessing_code	SearchLineEdit	预处理代码输入框
-    # preprocessing	QPushButton	预处理按钮
-    # correctingposition	QPushButton	校正位置按钮
-    # showfiles	QComboBox	显示文件选择器
-    # loadlastfile	QPushButton	加载最后一个文件按钮
-    # refreshmask    QPushButton	刷新遮罩按钮
-    # choosemaskselect    QPushButton	选择遮罩下拉菜单
-    # importpainter    QPushButton	导入自定义绘图函数按钮
-    # savefileall    QPushButton	保存文件夹下所有渲染的参考图像按钮
-    # showedge   QPushButton	显示边缘提取图像按钮
-    # preprocessingall    QPushButton	批量预处理按钮
-
-
-    # 这函数换现在我也看不懂了，算法每一步的东西全部都融在一个函数里面了，主要是为了提高效率，真要理解算法去看我最初写的七八个函数的文件
+    # 这函数换现在我也看不懂了，算法每一步的东西全部都融在一个函数里面了，主要是为了提高效率。
     # 这个东西我折腾了整整一天啊，唉，太难了，自己画极坐标，还得和html同步，太难了
     
     def 完整极坐标数组到画布数组(self, polar_array, array_or_image):
