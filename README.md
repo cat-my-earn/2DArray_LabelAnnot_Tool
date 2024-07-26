@@ -8,7 +8,6 @@ A tool for pixel data annotation of 2D arrays that generates a mask of the same 
 
 ## 适用范围
 假如你有一个二维数组（可能表示一个图像或者其他什么，但前提是这个二维数组可以被matplotlib绘制出来，即结构整齐且值必须为纯数字），你要对每一个数据点标注类型，可以使用该程序。
-目前只支持中文……工具注释的文本量太大了有点翻译不过来。
 
 If you have a 2D array (which might represent an image or something else, but the premise is that this 2D array can be plotted using matplotlib, meaning its structure is regular and the values must be pure numbers), and you want to annotate each data point, you can use this program.
 
@@ -22,6 +21,9 @@ It only supports Chinese now, because tool's annotations are too large to transl
 
 - 可以自定义标注类型和绘图时对应的颜色。
   - Customize annotation types and the corresponding colors when drawing.
+
+- 可以自定义被标注的数据点范围，通过将尺寸相同的零和一构成的数组以键“Musk_nan”添加到npz文件中实现。
+  - Customize the range of data points to be annotated by adding arrays consisting of zeros and ones with the same size under the key “Musk_nan” in the npz file.
 
 - 可以加载多个二维数组，由matplotlib绘制图像，不同图像比较以确定标注类型。
   - Load multiple 2D arrays, plot images with matplotlib, and compare different images to determine annotation types.
@@ -53,8 +55,8 @@ It only supports Chinese now, because tool's annotations are too large to transl
 - 支持对目录下的文件批量导出参考图（批量对每一个文件用自定义绘图函数绘制出matplotlib图像后导出到对应文件夹）。
   - Support batch exporting reference images for files in a directory (batch drawing matplotlib images for each file using a custom drawing function and exporting them to the corresponding folder).
 
-- 支持对目录下的文件批量预处理（批量对每一个文件按照预设条件生成一个对应的包含“Musk”键的npz文件）。
-  - Support batch preprocessing for files in a directory (batch generating a corresponding npz file with the "Musk" key for each file according to preset conditions).
+- 支持对目录下的文件批量预处理（批量对每一个文件按照预设条件生成一个对应的包含“Musk”键和“Musk_nan”键的npz文件）。
+  - Support batch preprocessing for files in a directory (batch generating a corresponding npz file with the "Musk" and "Musk_nan" keys for each file according to preset conditions).
 
 - 使用配置文件，可以批量修改配置项。
   - Use configuration files to batch modify configuration items.
