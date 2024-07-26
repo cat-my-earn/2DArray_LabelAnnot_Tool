@@ -10,7 +10,9 @@ A tool for pixel data annotation of 2D arrays that generates a mask of the same 
 假如你有一个二维数组（可能表示一个图像或者其他什么，但前提是这个二维数组可以被matplotlib绘制出来，即结构整齐且值必须为纯数字），你要对每一个数据点标注类型，可以使用该程序。
 目前只支持中文……工具注释的文本量太大了有点翻译不过来。
 
-If you have a 2D array (which might represent an image or something else, but the premise is that this 2D array can be plotted using matplotlib, meaning its structure is regular and the values must be pure numbers), and you want to annotate each data point, you can use this program. Currently, it only supports Chinese as the tool's annotation text is too large to translate.
+If you have a 2D array (which might represent an image or something else, but the premise is that this 2D array can be plotted using matplotlib, meaning its structure is regular and the values must be pure numbers), and you want to annotate each data point, you can use this program. Currently.
+
+It only supports Chinese now, because tool's annotations are too large to translate.
 
 ## 功能概述 / Functional Overview
 
