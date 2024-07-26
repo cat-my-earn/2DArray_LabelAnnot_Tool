@@ -1181,12 +1181,27 @@ MainDrawingAreaContainer = """
                     if (expectedChunks === 0) {
                         expectedChunks = total;
                     }
-                    // console.log("数据块内容:", chunk);
+
+                    // 检查索引是否在预期范围内
+                    if (index >= expectedChunks) {
+                        console.error("接收到的块索引超出预期范围:", index);
+                        return;
+                    }
+
+                    // 检查是否已经接收到该索引的数据块
+                    if (receivedChunks[index] !== undefined) {
+                        console.warn("重复接收到数据块，块索引为:", index);
+                        return;
+                    }
+
                     console.log("数据块类型:", typeof chunk);
                     console.log("数据块大小 (字符数):", chunk.length);
 
                     receivedChunks[index] = chunk;
                     totalChunks++;
+                    console.log("已接收到的数据块数量:", totalChunks);
+                    console.log("期望接收的数据块数量:", expectedChunks);
+
 
                     if (totalChunks === expectedChunks) {
                         console.log("接收到从python发来的所有数据块，数据块总数为:", totalChunks);
@@ -1199,7 +1214,7 @@ MainDrawingAreaContainer = """
                             byteArray[i] = decodedData.charCodeAt(i);
                         }
                         // console.log("合并后的压缩数据:", byteArray);
-                        
+
                         try {
                             var decompressedData = pako.ungzip(byteArray, { to: 'string' });
                             if (!decompressedData) {
@@ -1220,6 +1235,11 @@ MainDrawingAreaContainer = """
                         } catch (error) {
                             console.error("处理接收数据时发生错误:", error);
                         }
+
+                        // 处理完所有数据块后重置计数器和数组
+                        receivedChunks = [];
+                        totalChunks = 0;
+                        expectedChunks = 0;
                     }
                 });
 
@@ -2178,11 +2198,10 @@ MainDrawingAreaContainer = """
                     imageSmoothing: false
                 });
                 canvas.add(imgInstance);
-                canvas.width = colorArray_temp.length;
                 console.log("canvas.width", canvas.width);
-                canvas.height = colorArray_temp[0].length;
                 console.log("canvas.height", canvas.height);
                 canvas.renderAll();
+                // 这块不能对canvas属性做任何修改，否则会导致canvas的大小变化，这个时候坐标判定会出问题
             };
             imgElement2.src = tempCanvas2.toDataURL();
             console.log("绘制遮罩层成功");
@@ -3059,7 +3078,6 @@ MainDrawingAreaContainer = """
     </script>
 </body>
 </html>
-
 """
 
 
@@ -4897,6 +4915,7 @@ class Bridge(QObject):
     sendCanvasPositionToJS = Signal(list)
     sendChunkToJS = Signal(str, int, int)  # 发送数据块信号
     sendBase64ToJS = Signal(str)
+    dataTransferComplete = Signal()  # 数据传输完成信号
 
     def __init__(self, ui):
         super().__init__()
@@ -5066,7 +5085,6 @@ class Bridge(QObject):
     # 向主painter传递背景图片
     @Slot()
     def requestBase64ImageFromPython(self, base64_image_data):
-        logger.debug(f"向painter发送背景图片")
         # 向 JavaScript 发送 base64 编码的图像数据
         self.sendBase64ToJS.emit(base64_image_data)
 
@@ -5081,32 +5099,25 @@ class Bridge(QObject):
     @Slot()
     def requestMuskArrayFromPython(self):
         logger.info("向painter发送遮罩数组")  
-    
+            
         颜色遮罩数组 = self.数组输入输出之前的预处理(self.ui.颜色遮罩数组).tolist()
         nan颜色数组 = self.数组输入输出之前的预处理(self.ui.nan颜色数组).tolist()
 
         data = [颜色遮罩数组, nan颜色数组]
         data_str = json.dumps(data)
         compressed_data = gzip.compress(data_str.encode('utf-8'))
-        
+
         chunk_size = 1024 * 8192  # 8 MB
         total_chunks = (len(compressed_data) + chunk_size - 1) // chunk_size
         logger.info(f"数据压缩后大小为 {len(compressed_data)} 字节")
 
-        def send_chunk(i, chunk):
+        for i in range(total_chunks):
+            chunk = compressed_data[i * chunk_size:(i + 1) * chunk_size]
             encoded_chunk = base64.b64encode(chunk).decode('utf-8')  # 将字节数据转换为base64字符串
             logger.info(f"正在发送 {i + 1} 个数据块，总数据块为 {total_chunks}")
             self.sendChunkToJS.emit(encoded_chunk, i, total_chunks)  # 发送base64字符串数据块
-
-        threads = []
-        for i in range(total_chunks):
-            chunk = compressed_data[i * chunk_size:(i + 1) * chunk_size]
-            thread = threading.Thread(target=send_chunk, args=(i, chunk))
-            threads.append(thread)
-            thread.start()
-
-        for thread in threads:
-            thread.join()
+        
+        self.dataTransferComplete.emit()
 
     def 数组输入输出之前的预处理(self, ori_array, 是否发送=True):
         """
@@ -5457,11 +5468,8 @@ class FunctionsAll:
         
         self.预启动加载()
 
-        # 加载上一次的数据
-        if self.展示文件函数(self.文件夹路径, self.正在使用的页数, 是否第一次启动=True) != 0:
-            self.更新文件按钮状态()
-            self.页码选择变化(self.正在使用的页数)
-            self.选择文件(self.正在使用的文件索引)
+
+
 
 
     def 添加网页容器(self, num_groups=1, parent=None, parent2=None):
@@ -5580,8 +5588,6 @@ class FunctionsAll:
         self.ui.whitepic = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAADCAYAAABWKLW/AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAFiUAABYlAUlSJPAAAAAYSURBVBhXY/z//+9/BihggtJggMRhYAAAkcIEACsOnEUAAAAASUVORK5CYII="
         self.ui.mask.setHtml(self.Main.path_other_html.replace("base64数据替换占位符", ui.base64pictemp).replace("遮罩图标志位", "已开启遮罩图").replace("crosshairPosition = { x: positionArray[0], y: positionArray[1] };", "crosshairPosition = { x: positionArray[2], y: positionArray[3] };").replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
 
-
-
         for webview in self.webviews:
             webview.setHtml(self.Main.path_other_html.replace("base64数据替换占位符", ui.base64pictemp).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
 
@@ -5687,12 +5693,14 @@ class FunctionsAll:
         parent=self.Main)
         w.show()
     
+    @报错装饰器
     def 显示进度条(self,是否显示 = True):
         if not 是否显示:# 之前用 if self.stateTooltip判断是否在显示
             logger.info("隐藏进度条")
-            self.stateTooltip.setContent('文件加载完成啦 😆')
-            self.stateTooltip.setState(True)
-            
+            try:
+                self.stateTooltip.setContent('文件加载完成啦 😆')
+                self.stateTooltip.setState(True)
+            except:pass
         else:
             logger.info("显示进度条")
             self.stateTooltip = StateToolTip('正在加载文件', '请耐心等待哦~~', self.ui.widget)
@@ -6311,19 +6319,52 @@ class FunctionsAll:
         # 执行回调函数
         on_base64_ready(base64data)
 
-        # # 启动线程
-        # thread = threading.Thread(target=线程任务)
-        # thread.start()
 
 
-
+    # 控件名称	控件类型	中文意思
+    # Dialog	QDialog	对话框
+    # widget	QWidget	小部件
+    # verticalLayout	QVBoxLayout	垂直布局
+    # scrollArea	QScrollArea	滚动区域
+    # scrollAreaWidgetContents_2	QWidget	滚动区域内容容器
+    # painter	QWebEngineView	绘图器
+    # mask	QWebEngineView	遮罩图层
+    # ZDRphoto	QWebEngineView	ZDR照片
+    # Vphoto	QWebEngineView	V照片
+    # Wphoto	QWebEngineView	W照片
+    # SNRphoto	QWebEngineView	SNR照片
+    # LDRphoto	QWebEngineView	LDR照片
+    # widget_8	QWebEngineView	小部件8
+    # openfiles	PrimaryPushButton	打开文件按钮
+    # previousfile	QPushButton	上一个文件按钮
+    # nextfile	QPushButton	下一个文件按钮
+    # clearmask	QPushButton	清除遮罩按钮
+    # showall	QPushButton	显示全部按钮
+    # outputclearpic	QPushButton	输出清晰图片按钮
+    # showmask	QPushButton	显示遮罩按钮
+    # selectfiles	PrimaryPushButton	选择文件按钮
+    # savepath	SearchLineEdit	保存路径输入框
+    # savefile	QPushButton	保存文件按钮
+    # refresh	QPushButton	刷新按钮
+    # page_selector	QComboBox	页面选择器
+    # preprocessing_code	SearchLineEdit	预处理代码输入框
+    # preprocessing	QPushButton	预处理按钮
+    # correctingposition	QPushButton	校正位置按钮
+    # showfiles	QComboBox	显示文件选择器
+    # loadlastfile	QPushButton	加载最后一个文件按钮
+    # refreshmask    QPushButton	刷新遮罩按钮
+    # choosemaskselect    QPushButton	选择遮罩下拉菜单
+    # importpainter    QPushButton	导入自定义绘图函数按钮
+    # savefileall    QPushButton	保存文件夹下所有渲染的参考图像按钮
+    # showedge   QPushButton	显示边缘提取图像按钮
+    # preprocessingall    QPushButton	批量预处理按钮
 
 
     # 用来给按钮绑定函数的
     def Initialize_Connects(self,ui):
         # 为控件添加工具提示
         tooltips = {
-            self.ui.showmask: "点击以显示或隐藏遮罩，点击切换状态，如果有遮罩的文件但是没显示出遮罩，也可以点击这里刷新一下。\n隐藏遮罩的快捷键为【Ctrl + X】,显示遮罩的快捷键为【Ctrl + L】",
+            self.ui.showmask: "点击以显示或隐藏遮罩，点击切换状态，如果有遮罩的文件但是没显示出遮罩，也可以点击这里刷新一下。\n隐藏遮罩的快捷键为【Ctrl + Y】,显示遮罩的快捷键为【Ctrl + L】",
             self.ui.refresh: "刷新当前视图，工作原理是根据绘制的遮罩替换主函数的颜色数组，再将遮罩传递给绘图.\n绘图区域出bug可以用这个抢救下。\n快捷键为【Ctrl + F】",
             self.ui.page_selector: "下拉菜单切换分页：如果一个下拉菜单放太多文件，会很卡",
             self.ui.openfiles: "打开文件夹，选择好后还要在右边的下拉菜单选择具体文件，然后点击选择文件，等待加载即可。\n文件夹内的内容有更新的时候，目录不会自动更新，需要先打开另一个文件夹，再打开要使用的文件夹，才会成功更新——因为打开和上次相同的路径时不会重新执行加载操作。",
@@ -6389,8 +6430,17 @@ class FunctionsAll:
         if self.预处理代码 != "":
             self.ui.preprocessing_code.setText(self.预处理代码)
 
+        self.立刻显示绘图区遮罩 = False
+        self.Main.bridge.dataTransferComplete.connect(self.重新绘制遮罩)
 
-    ## 以下是一堆用来绑定按钮的函数，难倒是不难，就是又多又烦
+        # 加载上一次的数据
+        if self.展示文件函数(self.文件夹路径, self.正在使用的页数, 是否第一次启动=True) != 0:
+            self.更新文件按钮状态()
+            self.页码选择变化(self.正在使用的页数)
+            self.选择文件(self.正在使用的文件索引)
+
+
+    ## 以下是一堆用来绑定按钮的函数
 
     
     def 打开文件夹函数(self):
@@ -6578,12 +6628,18 @@ class FunctionsAll:
         
     
     def 显示遮罩函数(self):
+        self.立刻显示绘图区遮罩 = True
         # 让网页清空遮罩，然后将colormask数组传递给js，让js重新绘制遮罩，直接对painter对象跑js代码
-        self.ui.painter.page().runJavaScript("clearCanvasCompletely(canvas);")# 清空遮罩
-        logger.info("显示遮罩时候的发送")
-        self.Main.bridge.requestMuskArrayFromPython()#向js发送颜色数组
-        time.sleep(0.1)
-        self.ui.painter.page().runJavaScript("drawColorArrayOnCanvas(maskArray_color);")# 重新绘制遮罩
+        self.ui.painter.page().runJavaScript("clearCanvasCompletely(canvas);")  # 清空遮罩
+        self.Main.bridge.requestMuskArrayFromPython()  # 向js发送颜色数组
+
+
+    # 定义一个内部函数来处理重新绘制遮罩
+    def 重新绘制遮罩(self):
+        logger.debug(f"立刻显示绘图区遮罩：{self.立刻显示绘图区遮罩}")
+        if self.立刻显示绘图区遮罩:
+            self.ui.painter.page().runJavaScript("drawColorArrayOnCanvas(maskArray_color);")  # 重新绘制遮罩
+            self.立刻显示绘图区遮罩 = False
     
     def 消除遮罩函数(self):
         # 先将遮罩数据传递回主函数，再让网页清空遮罩，直接对painter对象跑js代码
@@ -7821,52 +7877,6 @@ else:
                     if self.preprocessing_progressflyout.progress_exist:
                         self.preprocessing_progressflyout.set_files_processed(filecount,os.path.basename(path))
 
-
-
-            
-
-
-        #ui.ui.widget.load(QUrl.fromLocalFile(path1))
-        #ui.ui.widget.load(QUrl("https://cdn.bootcdn.net/ajax/libs/fabric.js/5.3.1/fabric.js"))
-
-
-    # 控件名称	控件类型	中文意思
-    # Dialog	QDialog	对话框
-    # widget	QWidget	小部件
-    # verticalLayout	QVBoxLayout	垂直布局
-    # scrollArea	QScrollArea	滚动区域
-    # scrollAreaWidgetContents_2	QWidget	滚动区域内容容器
-    # painter	QWebEngineView	绘图器
-    # mask	QWebEngineView	遮罩图层
-    # ZDRphoto	QWebEngineView	ZDR照片
-    # Vphoto	QWebEngineView	V照片
-    # Wphoto	QWebEngineView	W照片
-    # SNRphoto	QWebEngineView	SNR照片
-    # LDRphoto	QWebEngineView	LDR照片
-    # widget_8	QWebEngineView	小部件8
-    # openfiles	PrimaryPushButton	打开文件按钮
-    # previousfile	QPushButton	上一个文件按钮
-    # nextfile	QPushButton	下一个文件按钮
-    # clearmask	QPushButton	清除遮罩按钮
-    # showall	QPushButton	显示全部按钮
-    # outputclearpic	QPushButton	输出清晰图片按钮
-    # showmask	QPushButton	显示遮罩按钮
-    # selectfiles	PrimaryPushButton	选择文件按钮
-    # savepath	SearchLineEdit	保存路径输入框
-    # savefile	QPushButton	保存文件按钮
-    # refresh	QPushButton	刷新按钮
-    # page_selector	QComboBox	页面选择器
-    # preprocessing_code	SearchLineEdit	预处理代码输入框
-    # preprocessing	QPushButton	预处理按钮
-    # correctingposition	QPushButton	校正位置按钮
-    # showfiles	QComboBox	显示文件选择器
-    # loadlastfile	QPushButton	加载最后一个文件按钮
-    # refreshmask    QPushButton	刷新遮罩按钮
-    # choosemaskselect    QPushButton	选择遮罩下拉菜单
-    # importpainter    QPushButton	导入自定义绘图函数按钮
-    # savefileall    QPushButton	保存文件夹下所有渲染的参考图像按钮
-    # showedge   QPushButton	显示边缘提取图像按钮
-    # preprocessingall    QPushButton	批量预处理按钮
 
 
     # 这函数换现在我也看不懂了，算法每一步的东西全部都融在一个函数里面了，主要是为了提高效率，真要理解算法去看我最初写的七八个函数的文件
