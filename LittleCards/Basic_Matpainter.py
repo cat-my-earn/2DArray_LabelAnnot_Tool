@@ -17,7 +17,6 @@ def matpainter(data, data_type, use_polar, file_name="",dpi=100, save_path=None,
 
     else:
         # 假设data是你的numpy数组
-        # max_value_except_65535 = data[data != 65535].max()
         data[data == 65535] = np.nan  # 将65535的值替换为np.nan
 
         # 使用numpy的nan_to_num方法处理nan值，将nan替换为一个特定的值，这里选择最大值+1以便后续处理
