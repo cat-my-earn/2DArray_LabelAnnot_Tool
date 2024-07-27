@@ -79,7 +79,7 @@ class BaseMainWindow(FluentWindow):
             self.setStyleSheet("background-color: #000000;")
             for i in WebContainer:
                 try:
-                    i.page().runJavaScript("toggleNightMode(true);")
+                    i.page().runJavaScript("try { toggleNightMode(true); } catch (error) { }")
                 except:pass
 
         else:
@@ -88,7 +88,7 @@ class BaseMainWindow(FluentWindow):
             self.setStyleSheet("background-color: #ffffff;")
             for i in WebContainer:
                 try:
-                    i.page().runJavaScript("toggleNightMode(false);")
+                    i.page().runJavaScript("try { toggleNightMode(false); } catch (error) { }")
                 except:pass
     def SwitchThemeColor(self,color):
         setThemeColor(color)
