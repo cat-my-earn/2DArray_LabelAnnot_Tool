@@ -6,7 +6,7 @@
     <script type="text/javascript" src="qrc:///qtwebchannel/qwebchannel.js"></script>
     <script type="text/javascript">
         var bridge;
-        var flag = 2; // 画布绘制标志位，如果=1说明是第一次绘制，否则是更新绘制
+        var flagreset = 2; // 画布绘制标志位，如果=1说明是第一次绘制，否则是更新绘制
         var CalibrationFlagPosition = false;
 
         
@@ -165,12 +165,13 @@
 
         // 你的图片的Base64编码
         var base64Image = 'base64数据替换占位符';
-
         function setBackgroundImage(base64Image, canvas) {
             fabric.Image.fromURL(base64Image, function(oImg) {
-                // 根据加载的图片大小调整画布大小
-                canvas.setWidth(oImg.width);
-                canvas.setHeight(oImg.height);
+                // 根据加载的图片大小调整画布大小，这个函数原本写来只打算用一次的，后来mask刷新背景图全用它，就导致了一些逻辑bug，只能加标志位，只在前两次调整画布大小
+                if (flagreset !== 0 ){ 
+                    canvas.setWidth(oImg.width);
+                    canvas.setHeight(oImg.height);
+                }
 
                 // 设置全局变量——图像宽高
                 picwidth = oImg.width;//设置全局变量为图片的宽度
@@ -182,7 +183,7 @@
                 var pageWidth = window.innerWidth-50;
                 var pageHeight = window.innerHeight-50;
 
-                if (flag !== 0){ 
+                if (flagreset !== 0 ){ 
                     // 检查图像的宽度和高度是否小于页面的宽度和高度（都减去了200）
                     if (oImg.width < pageWidth && oImg.height < pageHeight) {
                         // 如果图像的宽度和高度都小于页面的宽度和高度，直接使用图像的尺寸
@@ -208,7 +209,7 @@
                         // 应用视口变换
                         canvas.setViewportTransform(viewport);
                     }
-                    flag = flag - 1;
+                    flagreset = flagreset - 1;
                 }
 
 
@@ -223,7 +224,6 @@
                     scaleY: 1,
                     imageSmoothingEnabled: false
                 });
-                console.log("视窗大小为",window.innerWidth,window.innerHeight,"画布大小为",document.getElementById('c').width,document.getElementById('c').height,"画布样式大小为",document.getElementById('c').style.width,document.getElementById('c').style.height);
             });
         }
 
@@ -391,6 +391,7 @@
         }
             
         
+
         toggleNightMode(Nightmode);
         
 
