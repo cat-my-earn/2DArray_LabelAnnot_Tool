@@ -699,21 +699,16 @@
                     let startTime, endTime;
 
                     // 将数组转换为JSON字符串
-                    console.log("开始将数组转换为JSON字符串");
                     startTime = performance.now();
                     var jsonString = JSON.stringify(maskArray_color);
                     endTime = performance.now();
-                    console.log(`JSON字符串转换完成，长度: ${jsonString.length}，耗时: ${endTime - startTime}ms`);
 
                     // 压缩JSON字符串
-                    console.log("开始压缩JSON字符串");
                     startTime = performance.now();
                     var compressedData = pako.gzip(jsonString);
                     endTime = performance.now();
-                    console.log(`压缩完成，压缩后数据长度: ${compressedData.length}，耗时: ${endTime - startTime}ms`);
 
                     // 将压缩数据转换为Base64字符串
-                    console.log("开始将压缩数据转换为Base64字符串");
                     startTime = performance.now();
                     var binary = '';
                     var bytes = new Uint8Array(compressedData);
@@ -723,10 +718,8 @@
                     }
                     var base64Data = btoa(binary);
                     endTime = performance.now();
-                    console.log(`Base64字符串转换完成，长度: ${base64Data.length}，耗时: ${endTime - startTime}ms`);
 
                     // 发送数据到Python
-                    console.log("开始发送数据到Python");
                     startTime = performance.now();
                     window.bridge.receiveMuskArrayFromJS(base64Data)
                         .then(() => {
@@ -775,26 +768,18 @@
                         return;
                     }
 
-                    console.log("数据块类型:", typeof chunk);
-                    console.log("数据块大小 (字符数):", chunk.length);
 
                     receivedChunks[index] = chunk;
                     totalChunks++;
-                    console.log("已接收到的数据块数量:", totalChunks);
-                    console.log("期望接收的数据块数量:", expectedChunks);
 
 
                     if (totalChunks === expectedChunks) {
-                        console.log("接收到从python发来的所有数据块，数据块总数为:", totalChunks);
-                        // console.log("所有数据块内容:", receivedChunks);
-
                         var combinedChunks = receivedChunks.join('');
                         var decodedData = atob(combinedChunks);  // 解码base64字符串
                         var byteArray = new Uint8Array(decodedData.length);
                         for (var i = 0; i < decodedData.length; i++) {
                             byteArray[i] = decodedData.charCodeAt(i);
                         }
-                        // console.log("合并后的压缩数据:", byteArray);
 
                         try {
                             var decompressedData = pako.ungzip(byteArray, { to: 'string' });
@@ -802,9 +787,7 @@
                                 console.error("解压缩数据失败或结果为空");
                                 return;
                             }
-                            // console.log("解压缩后的数据:", decompressedData);
                             var data = JSON.parse(decompressedData);
-                            // console.log("解析后的数据:", data);
 
                             if (Array.isArray(data[0])) {
                                 console.log("接收到从python发来的数组，数组元素数量为:", data.length);
@@ -826,8 +809,7 @@
 
                 // 处理背景图像接收
                 window.bridge.sendBase64ToJS.connect(function(base64Data) {
-                    console.log("接收到python发来的背景图像");
-                    console.log("背景图像数据长度:", base64Data.length);
+                    console.log("接收到python发来的背景图像，Base64码长度为:", base64Data.length);
                     handleBase64Image(base64Data);
                 });
             });
@@ -1301,7 +1283,6 @@
 
         // 设置夜间模式的函数
         function toggleNightMode(forceNightMode = null) {
-            console.log("切换白天夜间模式");
             const isNightMode = document.body.classList.contains('night-mode');
             if (forceNightMode !== null) {
                 if (forceNightMode && !isNightMode) {
@@ -1989,7 +1970,6 @@
         
         // 你的图片的Base64编码
         function handleBase64Image(base64Image) {
-            console.log("准备开始绘制图片");
             // 从 URL 加载图像，并处理图像数据
             fabric.Image.fromURL(base64Image, function(oImg) {
                 // 创建临时 canvas 用于处理图像
@@ -2068,9 +2048,6 @@
                     // 在这里也可以设置imageSmoothingEnabled为false，但主要是通过oImg.imageSmoothing来控制
                     imageSmoothingEnabled: false
                 });
-                console.log("视窗大小为",window.innerWidth,window.innerHeight,"画布大小为",document.getElementById('c').width,document.getElementById('c').height,"画布样式大小为",document.getElementById('c').style.width,document.getElementById('c').style.height,"视窗位于",document.getElementById('c').getBoundingClientRect().left,document.getElementById('c').getBoundingClientRect().top);
-                // 输出大哥前视窗中心位于画布的坐标
-                console.log("视窗中心位于",canvas.getVpCenter().x,canvas.getVpCenter().y);
             });
         }
 
