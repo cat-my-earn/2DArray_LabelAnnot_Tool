@@ -1118,21 +1118,16 @@ MainDrawingAreaContainer = """
                     let startTime, endTime;
 
                     // 将数组转换为JSON字符串
-                    console.log("开始将数组转换为JSON字符串");
                     startTime = performance.now();
                     var jsonString = JSON.stringify(maskArray_color);
                     endTime = performance.now();
-                    console.log(`JSON字符串转换完成，长度: ${jsonString.length}，耗时: ${endTime - startTime}ms`);
 
                     // 压缩JSON字符串
-                    console.log("开始压缩JSON字符串");
                     startTime = performance.now();
                     var compressedData = pako.gzip(jsonString);
                     endTime = performance.now();
-                    console.log(`压缩完成，压缩后数据长度: ${compressedData.length}，耗时: ${endTime - startTime}ms`);
 
                     // 将压缩数据转换为Base64字符串
-                    console.log("开始将压缩数据转换为Base64字符串");
                     startTime = performance.now();
                     var binary = '';
                     var bytes = new Uint8Array(compressedData);
@@ -1142,10 +1137,8 @@ MainDrawingAreaContainer = """
                     }
                     var base64Data = btoa(binary);
                     endTime = performance.now();
-                    console.log(`Base64字符串转换完成，长度: ${base64Data.length}，耗时: ${endTime - startTime}ms`);
 
                     // 发送数据到Python
-                    console.log("开始发送数据到Python");
                     startTime = performance.now();
                     window.bridge.receiveMuskArrayFromJS(base64Data)
                         .then(() => {
@@ -1194,26 +1187,18 @@ MainDrawingAreaContainer = """
                         return;
                     }
 
-                    console.log("数据块类型:", typeof chunk);
-                    console.log("数据块大小 (字符数):", chunk.length);
 
                     receivedChunks[index] = chunk;
                     totalChunks++;
-                    console.log("已接收到的数据块数量:", totalChunks);
-                    console.log("期望接收的数据块数量:", expectedChunks);
 
 
                     if (totalChunks === expectedChunks) {
-                        console.log("接收到从python发来的所有数据块，数据块总数为:", totalChunks);
-                        // console.log("所有数据块内容:", receivedChunks);
-
                         var combinedChunks = receivedChunks.join('');
                         var decodedData = atob(combinedChunks);  // 解码base64字符串
                         var byteArray = new Uint8Array(decodedData.length);
                         for (var i = 0; i < decodedData.length; i++) {
                             byteArray[i] = decodedData.charCodeAt(i);
                         }
-                        // console.log("合并后的压缩数据:", byteArray);
 
                         try {
                             var decompressedData = pako.ungzip(byteArray, { to: 'string' });
@@ -1221,9 +1206,7 @@ MainDrawingAreaContainer = """
                                 console.error("解压缩数据失败或结果为空");
                                 return;
                             }
-                            // console.log("解压缩后的数据:", decompressedData);
                             var data = JSON.parse(decompressedData);
-                            // console.log("解析后的数据:", data);
 
                             if (Array.isArray(data[0])) {
                                 console.log("接收到从python发来的数组，数组元素数量为:", data.length);
@@ -1245,8 +1228,7 @@ MainDrawingAreaContainer = """
 
                 // 处理背景图像接收
                 window.bridge.sendBase64ToJS.connect(function(base64Data) {
-                    console.log("接收到python发来的背景图像");
-                    console.log("背景图像数据长度:", base64Data.length);
+                    console.log("接收到python发来的背景图像，Base64码长度为:", base64Data.length);
                     handleBase64Image(base64Data);
                 });
             });
@@ -1720,7 +1702,6 @@ MainDrawingAreaContainer = """
 
         // 设置夜间模式的函数
         function toggleNightMode(forceNightMode = null) {
-            console.log("切换白天夜间模式");
             const isNightMode = document.body.classList.contains('night-mode');
             if (forceNightMode !== null) {
                 if (forceNightMode && !isNightMode) {
@@ -2408,7 +2389,6 @@ MainDrawingAreaContainer = """
         
         // 你的图片的Base64编码
         function handleBase64Image(base64Image) {
-            console.log("准备开始绘制图片");
             // 从 URL 加载图像，并处理图像数据
             fabric.Image.fromURL(base64Image, function(oImg) {
                 // 创建临时 canvas 用于处理图像
@@ -2487,9 +2467,6 @@ MainDrawingAreaContainer = """
                     // 在这里也可以设置imageSmoothingEnabled为false，但主要是通过oImg.imageSmoothing来控制
                     imageSmoothingEnabled: false
                 });
-                console.log("视窗大小为",window.innerWidth,window.innerHeight,"画布大小为",document.getElementById('c').width,document.getElementById('c').height,"画布样式大小为",document.getElementById('c').style.width,document.getElementById('c').style.height,"视窗位于",document.getElementById('c').getBoundingClientRect().left,document.getElementById('c').getBoundingClientRect().top);
-                // 输出大哥前视窗中心位于画布的坐标
-                console.log("视窗中心位于",canvas.getVpCenter().x,canvas.getVpCenter().y);
             });
         }
 
@@ -3091,7 +3068,7 @@ ReferenceImageContainer = """
     <script type="text/javascript" src="qrc:///qtwebchannel/qwebchannel.js"></script>
     <script type="text/javascript">
         var bridge;
-        var flag = 2; // 画布绘制标志位，如果=1说明是第一次绘制，否则是更新绘制
+        var flagreset = 2; // 画布绘制标志位，如果=1说明是第一次绘制，否则是更新绘制
         var CalibrationFlagPosition = false;
 
         
@@ -3133,7 +3110,6 @@ ReferenceImageContainer = """
 
 
                 // 请求Python发送列表
-                // bridge.requestListFromPython();
             });
         });
         function sendCorrectionCoordinatesToPython(x, y) {
@@ -3251,12 +3227,13 @@ ReferenceImageContainer = """
 
         // 你的图片的Base64编码
         var base64Image = 'base64数据替换占位符';
-
         function setBackgroundImage(base64Image, canvas) {
             fabric.Image.fromURL(base64Image, function(oImg) {
-                // 根据加载的图片大小调整画布大小
-                canvas.setWidth(oImg.width);
-                canvas.setHeight(oImg.height);
+                // 根据加载的图片大小调整画布大小，这个函数原本写来只打算用一次的，后来mask刷新背景图全用它，就导致了一些逻辑bug，只能加标志位，只在前两次调整画布大小
+                if (flagreset !== 0 ){ 
+                    canvas.setWidth(oImg.width);
+                    canvas.setHeight(oImg.height);
+                }
 
                 // 设置全局变量——图像宽高
                 picwidth = oImg.width;//设置全局变量为图片的宽度
@@ -3268,7 +3245,7 @@ ReferenceImageContainer = """
                 var pageWidth = window.innerWidth-50;
                 var pageHeight = window.innerHeight-50;
 
-                if (flag !== 0){ 
+                if (flagreset !== 0 ){ 
                     // 检查图像的宽度和高度是否小于页面的宽度和高度（都减去了200）
                     if (oImg.width < pageWidth && oImg.height < pageHeight) {
                         // 如果图像的宽度和高度都小于页面的宽度和高度，直接使用图像的尺寸
@@ -3294,7 +3271,7 @@ ReferenceImageContainer = """
                         // 应用视口变换
                         canvas.setViewportTransform(viewport);
                     }
-                    flag = flag - 1;
+                    flagreset = flagreset - 1;
                 }
 
 
@@ -3309,7 +3286,6 @@ ReferenceImageContainer = """
                     scaleY: 1,
                     imageSmoothingEnabled: false
                 });
-                console.log("视窗大小为",window.innerWidth,window.innerHeight,"画布大小为",document.getElementById('c').width,document.getElementById('c').height,"画布样式大小为",document.getElementById('c').style.width,document.getElementById('c').style.height);
             });
         }
 
@@ -3349,7 +3325,6 @@ ReferenceImageContainer = """
             crosshairV.style.height = '100%';
         }
 
-        // 示例：在画布的(100, 100)位置绘制十字线
         // 注意：实际使用时，应根据需要调用此函数
         function updateCrosshairPosition(positionArray) {
             // 更新全局变量crosshairPosition的值
@@ -3359,8 +3334,6 @@ ReferenceImageContainer = """
             // 使用更新后的crosshairPosition调用drawCrosshair函数
             drawCrosshair(crosshairPosition);
         }
-
-        // updateCrosshairPosition([100, 100]);
 
         // 这个函数的作用是启用画布的放大缩小功能
         function enableZoom() {
@@ -3480,6 +3453,7 @@ ReferenceImageContainer = """
         }
             
         
+
         toggleNightMode(Nightmode);
         
 
@@ -3802,7 +3776,6 @@ class DictTableWidget(QWidget):
         self.objectflag = False
         if parent:
             if isinstance(original_dict, str) and hasattr(parentup, original_dict):
-                logger.info(f'从父控件中获取了属性 {original_dict}')
                 self.original_dict = getattr(parentup, original_dict)
                 logger.info(f'从父控件中获取了属性 {original_dict}，值为 {self.original_dict}')
                 self.objectflag = True
@@ -4906,6 +4879,45 @@ class CustomWebEnginePage(QWebEnginePage):
 
 
 
+class ConnectOnce(QObject):
+    """
+    ConnectOnce 类
+
+    这个类用于确保信号只连接一次，并在信号触发后将回调函数设置为空函数，
+    以确保后续的信号触发不会执行任何操作。
+    属性:
+        signal_connected (bool): 标志位，指示信号是否已经连接。
+    """
+
+    def __init__(self, imagesobject):
+        """
+        初始化 ConnectOnce 类的实例。
+        """
+        super().__init__()
+        self.signal_connected = False
+        self.imagesobject = imagesobject
+
+    def connect_signal(self, callback):
+        """
+        连接信号到指定的回调函数。
+        参数:
+            imagesobject: 具有 loadFinished 信号的对象。
+            callback: 信号触发时要调用的回调函数。
+        """
+        self.callback = callback
+        if not self.signal_connected:
+            self.imagesobject.loadFinished.connect(self.slot_function)
+            self.signal_connected = True
+
+    def slot_function(self):
+        """
+        信号触发时的处理函数。
+        调用回调函数并将其设置为空函数，以确保没有再次调用connect_signal时再次触发callback什么都不会执行。
+        """
+        self.callback()
+        self.callback = lambda: None
+
+
 class Bridge(QObject):
     """
     定义一个Bridge类，用于处理Python和JavaScript之间的通信
@@ -4996,9 +5008,6 @@ class Bridge(QObject):
     # 接收来自painter的遮罩数组
     @Slot(str)
     def receiveMuskArrayFromJS(self, base64Data):
-        logger.info("接收到来自js的遮罩数组")
-
-        # def process_data(apiobject, data):
         try:
                 
             # 解码 Base64 数据
@@ -5012,7 +5021,7 @@ class Bridge(QObject):
 
             # 检查 numpy 数组的形状
             if numpy_array.shape[0] == 500 and numpy_array.shape[1] == 500:
-                logger.info("接收到来自js的遮罩数组然后发送给painter")
+                logger.info("接收到来自js的遮罩数组，尺寸不一致，执行初始化，发送遮罩数组给painter")
                 self.requestMuskArrayFromPython()
                 return
 
@@ -5457,7 +5466,7 @@ class FunctionsAll:
         ui.channel.registerObject('bridge', ui.bridge)
 
         # 创建 WebEngineView 组件
-        self.webview_base ,self.webviews = self.添加网页容器(num_groups=self.显示参考图的行数, parent=ui.ui, parent2=ui)
+        self.webview_base ,self.webviews ,self.connect_onces = self.添加网页容器(num_groups=self.显示参考图的行数, parent=ui.ui, parent2=ui)
         self.webviewsall = self.webview_base + self.webviews
 
         for i in range(0, len(self.webview_base), 2):
@@ -5482,7 +5491,7 @@ class FunctionsAll:
         if parent is None:
             return
 
-        logger.debug(f"添加网页容器：{num_groups}，目前的组件数量：{parent.gridLayout_3.count()}，分别有：{[parent.gridLayout_3.itemAt(i).widget() for i in range(parent.gridLayout_3.count())]}")
+        logger.info(f"添加网页容器：{num_groups}，目前的组件数量：{parent.gridLayout_3.count()}")
 
         webview_base = [parent.painter, parent.mask]
 
@@ -5513,10 +5522,12 @@ class FunctionsAll:
                         continue
                     parent.gridLayout_3.removeItem(item)
 
-        logger.debug(f"删除结束之后的组件数量：{parent.gridLayout_3.count()}，分别有：{[parent.gridLayout_3.itemAt(i).widget() for i in range(parent.gridLayout_3.count())]}")
+        logger.info(f"删除结束之后的组件数量：{parent.gridLayout_3.count()}")
 
         # 用于存储动态创建的 webview 实例
         webviews = []
+        connect_onces = []
+
         if num_groups != 0:
             # 遍历添加每组的 WebEngineView 组件
             for i in range(num_groups):
@@ -5549,10 +5560,20 @@ class FunctionsAll:
                 parent.gridLayout_3.addItem(horizontal_spacer1, i*2 + 2, 1, 1, 1)
                 parent.gridLayout_3.addItem(horizontal_spacer2, i*2 + 2, 3, 1, 1)
 
+                # 创建 ConnectOnce 对象并连接信号
+                connect_once1 = ConnectOnce(webview1)
+                connect_once2 = ConnectOnce(webview2)
+                setattr(self, f"connect_once_{i*2 + 1}", connect_once1)
+                setattr(self, f"connect_once_{i*2 + 2}", connect_once2)
+
             # 从 self 中获取所有动态创建的 webview 实例并添加到列表
             for i in range(num_groups * 2):
                 webview = getattr(self, f"webview_{i + 1}")
                 webviews.append(webview)
+
+            for i in range(num_groups * 2):
+                connect_once = getattr(self, f"connect_once_{i + 1}")
+                connect_onces.append(connect_once)
 
         for i in range(0, len(webviews), 2):
             for view in webviews[i:i+2]:
@@ -5563,7 +5584,7 @@ class FunctionsAll:
         # 更新内层滑动区域的高度，保证滑动条正常出现和消失
         parent.scrollAreaWidgetContents_2.setMinimumSize(QSize(1600, 760 + 520 * num_groups))
         
-        return webview_base, webviews
+        return webview_base, webviews ,connect_onces
 
 
     def 预启动加载(self):
@@ -5779,6 +5800,7 @@ class FunctionsAll:
             logger.error(f"绘制参考图的时候，npz文件数组的键索引超出参考图容器数量范围，当前索引为{索引}，最大索引为{len(self.webviews)-1}，当前键为{self.Main.当前使用numpy数组和内部数据字典[索引][0]}")
             return
         images = self.webviews
+        connects = self.connect_onces
         绘图使用的文件名 = re.sub(r"(_Mask|_预处理|_已修改)", "", os.path.basename(self.正在使用的文件名字).split(".")[0])
         
         if 是否保存文件:
@@ -5814,7 +5836,7 @@ class FunctionsAll:
             if self.判断参考图是否经过预处理标志位:
                 if self.判断参考图是否经过边缘提取标志位:
                     # 处理保存文件，预处理和边缘提取都为True的情况
-                    logger.info("处理保存文件，预处理和边缘提取都为True的情况")
+                    logger.info("处理保存文件、预处理和边缘提取都为True的情况")
                     picbase64data = 绘制图像(self.根据遮罩数组处理原始图像(self.Main.当前使用numpy数组和内部数据字典[索引][2].copy()), self.Main.当前使用numpy数组和内部数据字典[索引][0], self.Main.是否使用极坐标, file_name = 绘图使用的文件名, dpi=self.绘制图像dpi,save_path = 保存到哪里,edgedict = self.最终传递的边缘数组字典)
                 else:
                     # 处理保存文件和预处理为True，边缘提取为False的情况
@@ -5836,23 +5858,27 @@ class FunctionsAll:
                     # 处理保存文件为False，预处理和边缘提取都为True的情况
                     logger.info("处理保存文件为False，预处理和边缘提取都为True的情况")
                     picbase64data = 绘制图像(self.根据遮罩数组处理原始图像(self.Main.当前使用numpy数组和内部数据字典[索引][2].copy()), self.Main.当前使用numpy数组和内部数据字典[索引][0], self.Main.是否使用极坐标, file_name = 绘图使用的文件名, dpi=self.绘制图像dpi,edgedict = self.最终传递的边缘数组字典)
-                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", picbase64data).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", self.ui.whitepic).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    connects[索引].connect_signal(lambda: images[索引].page().runJavaScript(f"setBackgroundImage('{picbase64data}', canvas);"))
                 else:
                     # 处理保存文件为False，预处理为True，边缘提取为False的情况
                     logger.info("处理保存文件为False，预处理为True，边缘提取为False的情况")
                     picbase64data = 绘制图像(self.根据遮罩数组处理原始图像(self.Main.当前使用numpy数组和内部数据字典[索引][2].copy()), self.Main.当前使用numpy数组和内部数据字典[索引][0], self.Main.是否使用极坐标, file_name = 绘图使用的文件名, dpi=self.绘制图像dpi)
-                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", picbase64data).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", self.ui.whitepic).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    connects[索引].connect_signal(lambda: images[索引].page().runJavaScript(f"setBackgroundImage('{picbase64data}', canvas);"))
             else:
                 if self.判断参考图是否经过边缘提取标志位:
                     # 处理保存文件为False，边缘提取为True，预处理为False的情况
                     logger.info("处理保存文件为False，边缘提取为True，预处理为False的情况")
                     picbase64data = 绘制图像(self.Main.当前使用numpy数组和内部数据字典[索引][2].copy(), self.Main.当前使用numpy数组和内部数据字典[索引][0], self.Main.是否使用极坐标, file_name = 绘图使用的文件名, dpi=self.绘制图像dpi,edgedict = self.最终传递的边缘数组字典)
-                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", picbase64data).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", self.ui.whitepic).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    connects[索引].connect_signal(lambda: images[索引].page().runJavaScript(f"setBackgroundImage('{picbase64data}', canvas);"))
                 else:
                     # 处理保存文件，预处理和边缘提取都为False的情况
-                    logger.info("处理保存文件，预处理和边缘提取都为False的情况")
+                    logger.info("处理保存文件、预处理和边缘提取都为False的情况")
                     picbase64data = 绘制图像(self.Main.当前使用numpy数组和内部数据字典[索引][2].copy(), self.Main.当前使用numpy数组和内部数据字典[索引][0], self.Main.是否使用极坐标, file_name = 绘图使用的文件名, dpi=self.绘制图像dpi)
-                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", picbase64data).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", self.ui.whitepic).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    connects[索引].connect_signal(lambda: images[索引].page().runJavaScript(f"setBackgroundImage('{picbase64data}', canvas);"))
     
     def 确保有效的保存路径(self):
         # 检查并更新文件保存路径
@@ -6636,7 +6662,6 @@ class FunctionsAll:
 
     # 定义一个内部函数来处理重新绘制遮罩
     def 重新绘制遮罩(self):
-        logger.debug(f"立刻显示绘图区遮罩：{self.立刻显示绘图区遮罩}")
         if self.立刻显示绘图区遮罩:
             self.ui.painter.page().runJavaScript("drawColorArrayOnCanvas(maskArray_color);")  # 重新绘制遮罩
             self.立刻显示绘图区遮罩 = False
@@ -8290,7 +8315,7 @@ class BaseMainWindow(FluentWindow):
                 self.api.根据遮罩数组显示参考图()
             elif event.key() == Qt.Key_P:  # P键，预处理
                 self.api.预处理程序启动()
-            elif event.key() == Qt.Key_X:  # X键，清空遮罩
+            elif event.key() == Qt.Key_X:  # Y键，清空遮罩
                 self.api.消除遮罩函数()
             elif event.key() == Qt.Key_D:  # D键，显示原始数组参考图
                 self.api.显示原始数组参考图()
@@ -8316,7 +8341,7 @@ class BaseMainWindow(FluentWindow):
             self.setStyleSheet("background-color: #000000;")
             for i in WebContainer:
                 try:
-                    i.page().runJavaScript("toggleNightMode(true);")
+                    i.page().runJavaScript("try { toggleNightMode(true); } catch (error) { }")
                 except:pass
 
         else:
@@ -8325,7 +8350,7 @@ class BaseMainWindow(FluentWindow):
             self.setStyleSheet("background-color: #ffffff;")
             for i in WebContainer:
                 try:
-                    i.page().runJavaScript("toggleNightMode(false);")
+                    i.page().runJavaScript("try { toggleNightMode(false); } catch (error) { }")
                 except:pass
     def SwitchThemeColor(self,color):
         setThemeColor(color)
