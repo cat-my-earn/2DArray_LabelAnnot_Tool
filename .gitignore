@@ -10,8 +10,11 @@ venv/*
 # 忽略加载的配置文件
 配置文件.json
 
-# 忽略readme
+# 忽略说明文件
 README.md
+Development Process.md
+Background and Needs.md
+Chinese_Documentation┃操作说明.md
 
 # 忽略LICENSE
 LICENSE

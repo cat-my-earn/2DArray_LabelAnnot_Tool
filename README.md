@@ -4,6 +4,7 @@
 
 A tool for pixel data annotation of 2D arrays that generates a mask of the same size as the original array.
 
+![painter-example](https://github.com/user-attachments/assets/79c5cf64-5715-4929-9640-5c95be5b9373)
 
 
 ## 适用范围
@@ -76,11 +77,46 @@ It only supports Chinese now, because tool's annotations are too large to transl
 ### 主绘图界面 / Main Drawing Interface
 ![Main Drawing Interface](https://github.com/user-attachments/assets/30f25f26-bb9c-470b-a655-f41f62697b2b)
 
+![Main Drawing Interface Dark](https://github.com/user-attachments/assets/d78cc821-af84-4058-9e69-07a0d8eb378d)
+
+
 ### 设置界面 / Settings Interface
 ![Settings Interface](https://github.com/user-attachments/assets/516cbd2a-ea23-495e-84e8-b070d7493100)
 
-## 使用教程 / User Guide
-稍后补充 / To be added later
+![Settings Interface Dark](https://github.com/user-attachments/assets/f4293717-0b18-4293-86e5-38df001bf884)
 
-## 开发背景 / Development Background
-稍后补充 / To be added later
+
+
+
+
+
+## 使用教程 / User Guide
+稍后补充视频和图片的，愿意硬啃文本的话可以先看 [纯文本使用说明](Chinese_Documentation┃操作说明.md) / To be added later
+
+建议clone整个项目到本地，然后将venv文件夹里的venv.zip下载到本地，解压到venv文件夹里，双击bat即可运行。
+
+也可以使用自己的环境，运行MainWindow.py即可。
+
+如果不想太麻烦，可以在[release](https://github.com/cat-my-earn/2DArray_LabelAnnot_Tool/releases/tag/v1.0)里下载exe可执行文件，双击后等待半分钟即可启动。
+
+但是加载自定义绘图函数的时候，只能使用源码里import的库，可执行文件没法修改源码，只能使用‌`matplotlib‌`库，无法添加诸如‌`scipy‌`、‌`cartopy‌`等辅助绘图的库。
+
+
+
+
+## [背景和需求](src/Background%20and%20Needs.md) / Background and Needs
+
+可以通过查看我开发这个程序时的背景、遇到的问题以及使用它做了什么事情，来判断该程序是否适合您的使用场景。可以点击上方链接查看。
+
+You can assess whether this program fits your use case by reviewing the background, issues encountered, and tasks performed during its development. 
+
+Please click the link to view, but note that this document is in Chinese.
+
+
+
+
+## [开发过程](src/Development%20Process.md) / Development Process
+
+有空就写写这坨屎山是怎么产生的……毕竟被它折磨了一段时间，不记录一下说不过去。
+
+Please click the link to view, but note that the document is in Chinese.
