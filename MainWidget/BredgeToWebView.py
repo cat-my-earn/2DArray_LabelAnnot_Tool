@@ -13,6 +13,44 @@ class CustomWebEnginePage(QWebEnginePage):
         logger.info(f"{self.object1}Console: {message} 【line: {lineNumber}】")
 
 
+class ConnectOnce(QObject):
+    """
+    ConnectOnce 类
+
+    这个类用于确保信号只连接一次，并在信号触发后将回调函数设置为空函数，
+    以确保后续的信号触发不会执行任何操作。
+    属性:
+        signal_connected (bool): 标志位，指示信号是否已经连接。
+    """
+
+    def __init__(self, imagesobject):
+        """
+        初始化 ConnectOnce 类的实例。
+        """
+        super().__init__()
+        self.signal_connected = False
+        self.imagesobject = imagesobject
+
+    def connect_signal(self, callback):
+        """
+        连接信号到指定的回调函数。
+        参数:
+            imagesobject: 具有 loadFinished 信号的对象。
+            callback: 信号触发时要调用的回调函数。
+        """
+        self.callback = callback
+        if not self.signal_connected:
+            self.imagesobject.loadFinished.connect(self.slot_function)
+            self.signal_connected = True
+
+    def slot_function(self):
+        """
+        信号触发时的处理函数。
+        调用回调函数并将其设置为空函数，以确保没有再次调用connect_signal时再次触发callback什么都不会执行。
+        """
+        self.callback()
+        self.callback = lambda: None
+
 
 class Bridge(QObject):
     """
@@ -104,9 +142,6 @@ class Bridge(QObject):
     # 接收来自painter的遮罩数组
     @Slot(str)
     def receiveMuskArrayFromJS(self, base64Data):
-        logger.info("接收到来自js的遮罩数组")
-
-        # def process_data(apiobject, data):
         try:
                 
             # 解码 Base64 数据
@@ -120,7 +155,7 @@ class Bridge(QObject):
 
             # 检查 numpy 数组的形状
             if numpy_array.shape[0] == 500 and numpy_array.shape[1] == 500:
-                logger.info("接收到来自js的遮罩数组然后发送给painter")
+                logger.info("接收到来自js的遮罩数组，尺寸不一致，执行初始化，发送遮罩数组给painter")
                 self.requestMuskArrayFromPython()
                 return
 
