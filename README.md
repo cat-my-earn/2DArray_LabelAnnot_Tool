@@ -87,8 +87,16 @@ It only supports Chinese now, because tool's annotations are too large to transl
 
 
 
+
+
+
 ## 使用教程 / User Guide
 稍后补充视频和图片的，愿意硬啃文本的话可以先看 【Chinese_Documentation┃操作说明.md】 / To be added later
+
+
+
+
+
 
 ## 背景和需求 / Background and Needs
 最初是任务要求要训练个神经网络，去判定雷达图中的不同目标物。
@@ -122,6 +130,9 @@ It only supports Chinese now, because tool's annotations are too large to transl
 如果看到这里的客官能够提供下正确的思路，我将不胜感激！！！！！
 
 也希望如果真有要用到这个程序的，审慎回顾一下技术路线，虽然我最后写出来也实际用它干活了，但我依然感觉这是条歧路。
+
+
+
 
 
 
