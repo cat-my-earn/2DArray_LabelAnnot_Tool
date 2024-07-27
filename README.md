@@ -91,17 +91,19 @@ It only supports Chinese now, because tool's annotations are too large to transl
 
 
 ## 使用教程 / User Guide
-稍后补充视频和图片的，愿意硬啃文本的话可以先看 【Chinese_Documentation┃操作说明.md】 / To be added later
+稍后补充视频和图片的，愿意硬啃文本的话可以先看 [纯文本使用说明](Chinese_Documentation┃操作说明.md) / To be added later
 
 
 
 
 
 
-## 背景和需求 / Background and Needs
+## [背景和需求](src/Background%20and%20Needs.md) / Background and Needs
 
+可以通过查看我开发这个程序时的背景、遇到的问题以及使用它做了什么事情，来判断该程序是否适合您的使用场景。可以点击上方链接查看。
 
-
+You can assess whether this program fits your use case by reviewing the background, issues encountered, and tasks performed during its development. 
+Please click the link to view, but note that this document is in Chinese.
 
 
 
@@ -109,4 +111,5 @@ It only supports Chinese now, because tool's annotations are too large to transl
 ## [开发过程](src/Development%20Process.md) / Development Process
 
 有空就写写这坨屎山是怎么产生的……毕竟被它折磨了一段时间，不记录一下说不过去。
+
 Please click the link to view, but note that the document is in Chinese.
