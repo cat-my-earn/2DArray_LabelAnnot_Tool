@@ -77,8 +77,15 @@ It only supports Chinese now, because tool's annotations are too large to transl
 ### 主绘图界面 / Main Drawing Interface
 ![Main Drawing Interface](https://github.com/user-attachments/assets/30f25f26-bb9c-470b-a655-f41f62697b2b)
 
+![Main Drawing Interface Dark](https://github.com/user-attachments/assets/d78cc821-af84-4058-9e69-07a0d8eb378d)
+
+
 ### 设置界面 / Settings Interface
 ![Settings Interface](https://github.com/user-attachments/assets/516cbd2a-ea23-495e-84e8-b070d7493100)
+
+![Settings Interface Dark](https://github.com/user-attachments/assets/f4293717-0b18-4293-86e5-38df001bf884)
+
+
 
 ## 使用教程 / User Guide
 稍后补充 / To be added later
