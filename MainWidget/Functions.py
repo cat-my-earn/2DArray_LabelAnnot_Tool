@@ -4,7 +4,7 @@
 
 from importall import *
 from LittleCards.ProgressBar import ProgressFlyoutView
-from MainWidget.BredgeToWebView import Bridge,CustomWebEnginePage
+from MainWidget.BredgeToWebView import Bridge,CustomWebEnginePage,ConnectOnce
 from MainWidget.ConfigClass import MyConfig
 from LittleCards.LittleMessageBox import CustomMessageBox
 from LittleCards.Basic_Matpainter import matpainter
@@ -166,7 +166,7 @@ class FunctionsAll:
         ui.channel.registerObject('bridge', ui.bridge)
 
         # 创建 WebEngineView 组件
-        self.webview_base ,self.webviews = self.添加网页容器(num_groups=self.显示参考图的行数, parent=ui.ui, parent2=ui)
+        self.webview_base ,self.webviews ,self.connect_onces = self.添加网页容器(num_groups=self.显示参考图的行数, parent=ui.ui, parent2=ui)
         self.webviewsall = self.webview_base + self.webviews
 
         for i in range(0, len(self.webview_base), 2):
@@ -191,7 +191,7 @@ class FunctionsAll:
         if parent is None:
             return
 
-        logger.debug(f"添加网页容器：{num_groups}，目前的组件数量：{parent.gridLayout_3.count()}，分别有：{[parent.gridLayout_3.itemAt(i).widget() for i in range(parent.gridLayout_3.count())]}")
+        logger.info(f"添加网页容器：{num_groups}，目前的组件数量：{parent.gridLayout_3.count()}")
 
         webview_base = [parent.painter, parent.mask]
 
@@ -222,10 +222,12 @@ class FunctionsAll:
                         continue
                     parent.gridLayout_3.removeItem(item)
 
-        logger.debug(f"删除结束之后的组件数量：{parent.gridLayout_3.count()}，分别有：{[parent.gridLayout_3.itemAt(i).widget() for i in range(parent.gridLayout_3.count())]}")
+        logger.info(f"删除结束之后的组件数量：{parent.gridLayout_3.count()}")
 
         # 用于存储动态创建的 webview 实例
         webviews = []
+        connect_onces = []
+
         if num_groups != 0:
             # 遍历添加每组的 WebEngineView 组件
             for i in range(num_groups):
@@ -258,10 +260,20 @@ class FunctionsAll:
                 parent.gridLayout_3.addItem(horizontal_spacer1, i*2 + 2, 1, 1, 1)
                 parent.gridLayout_3.addItem(horizontal_spacer2, i*2 + 2, 3, 1, 1)
 
+                # 创建 ConnectOnce 对象并连接信号
+                connect_once1 = ConnectOnce(webview1)
+                connect_once2 = ConnectOnce(webview2)
+                setattr(self, f"connect_once_{i*2 + 1}", connect_once1)
+                setattr(self, f"connect_once_{i*2 + 2}", connect_once2)
+
             # 从 self 中获取所有动态创建的 webview 实例并添加到列表
             for i in range(num_groups * 2):
                 webview = getattr(self, f"webview_{i + 1}")
                 webviews.append(webview)
+
+            for i in range(num_groups * 2):
+                connect_once = getattr(self, f"connect_once_{i + 1}")
+                connect_onces.append(connect_once)
 
         for i in range(0, len(webviews), 2):
             for view in webviews[i:i+2]:
@@ -272,7 +284,7 @@ class FunctionsAll:
         # 更新内层滑动区域的高度，保证滑动条正常出现和消失
         parent.scrollAreaWidgetContents_2.setMinimumSize(QSize(1600, 760 + 520 * num_groups))
         
-        return webview_base, webviews
+        return webview_base, webviews ,connect_onces
 
 
     def 预启动加载(self):
@@ -503,6 +515,7 @@ class FunctionsAll:
             logger.error(f"绘制参考图的时候，npz文件数组的键索引超出参考图容器数量范围，当前索引为{索引}，最大索引为{len(self.webviews)-1}，当前键为{self.Main.当前使用numpy数组和内部数据字典[索引][0]}")
             return
         images = self.webviews
+        connects = self.connect_onces
         绘图使用的文件名 = re.sub(r"(_Mask|_预处理|_已修改)", "", os.path.basename(self.正在使用的文件名字).split(".")[0])
         
         if 是否保存文件:
@@ -538,7 +551,7 @@ class FunctionsAll:
             if self.判断参考图是否经过预处理标志位:
                 if self.判断参考图是否经过边缘提取标志位:
                     # 处理保存文件，预处理和边缘提取都为True的情况
-                    logger.info("处理保存文件，预处理和边缘提取都为True的情况")
+                    logger.info("处理保存文件、预处理和边缘提取都为True的情况")
                     picbase64data = 绘制图像(self.根据遮罩数组处理原始图像(self.Main.当前使用numpy数组和内部数据字典[索引][2].copy()), self.Main.当前使用numpy数组和内部数据字典[索引][0], self.Main.是否使用极坐标, file_name = 绘图使用的文件名, dpi=self.绘制图像dpi,save_path = 保存到哪里,edgedict = self.最终传递的边缘数组字典)
                 else:
                     # 处理保存文件和预处理为True，边缘提取为False的情况
@@ -560,23 +573,27 @@ class FunctionsAll:
                     # 处理保存文件为False，预处理和边缘提取都为True的情况
                     logger.info("处理保存文件为False，预处理和边缘提取都为True的情况")
                     picbase64data = 绘制图像(self.根据遮罩数组处理原始图像(self.Main.当前使用numpy数组和内部数据字典[索引][2].copy()), self.Main.当前使用numpy数组和内部数据字典[索引][0], self.Main.是否使用极坐标, file_name = 绘图使用的文件名, dpi=self.绘制图像dpi,edgedict = self.最终传递的边缘数组字典)
-                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", picbase64data).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", self.ui.whitepic).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    connects[索引].connect_signal(lambda: images[索引].page().runJavaScript(f"setBackgroundImage('{picbase64data}', canvas);"))
                 else:
                     # 处理保存文件为False，预处理为True，边缘提取为False的情况
                     logger.info("处理保存文件为False，预处理为True，边缘提取为False的情况")
                     picbase64data = 绘制图像(self.根据遮罩数组处理原始图像(self.Main.当前使用numpy数组和内部数据字典[索引][2].copy()), self.Main.当前使用numpy数组和内部数据字典[索引][0], self.Main.是否使用极坐标, file_name = 绘图使用的文件名, dpi=self.绘制图像dpi)
-                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", picbase64data).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", self.ui.whitepic).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    connects[索引].connect_signal(lambda: images[索引].page().runJavaScript(f"setBackgroundImage('{picbase64data}', canvas);"))
             else:
                 if self.判断参考图是否经过边缘提取标志位:
                     # 处理保存文件为False，边缘提取为True，预处理为False的情况
                     logger.info("处理保存文件为False，边缘提取为True，预处理为False的情况")
                     picbase64data = 绘制图像(self.Main.当前使用numpy数组和内部数据字典[索引][2].copy(), self.Main.当前使用numpy数组和内部数据字典[索引][0], self.Main.是否使用极坐标, file_name = 绘图使用的文件名, dpi=self.绘制图像dpi,edgedict = self.最终传递的边缘数组字典)
-                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", picbase64data).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", self.ui.whitepic).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    connects[索引].connect_signal(lambda: images[索引].page().runJavaScript(f"setBackgroundImage('{picbase64data}', canvas);"))
                 else:
                     # 处理保存文件，预处理和边缘提取都为False的情况
-                    logger.info("处理保存文件，预处理和边缘提取都为False的情况")
+                    logger.info("处理保存文件、预处理和边缘提取都为False的情况")
                     picbase64data = 绘制图像(self.Main.当前使用numpy数组和内部数据字典[索引][2].copy(), self.Main.当前使用numpy数组和内部数据字典[索引][0], self.Main.是否使用极坐标, file_name = 绘图使用的文件名, dpi=self.绘制图像dpi)
-                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", picbase64data).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    images[索引].setHtml(self.Main.path_other_html.replace("base64数据替换占位符", self.ui.whitepic).replace("var Nightmode = false;", f"var Nightmode = {str(self.是否开启夜间模式).lower()};"))
+                    connects[索引].connect_signal(lambda: images[索引].page().runJavaScript(f"setBackgroundImage('{picbase64data}', canvas);"))
     
     def 确保有效的保存路径(self):
         # 检查并更新文件保存路径
@@ -1360,7 +1377,6 @@ class FunctionsAll:
 
     # 定义一个内部函数来处理重新绘制遮罩
     def 重新绘制遮罩(self):
-        logger.debug(f"立刻显示绘图区遮罩：{self.立刻显示绘图区遮罩}")
         if self.立刻显示绘图区遮罩:
             self.ui.painter.page().runJavaScript("drawColorArrayOnCanvas(maskArray_color);")  # 重新绘制遮罩
             self.立刻显示绘图区遮罩 = False
