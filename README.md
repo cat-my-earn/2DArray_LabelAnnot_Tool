@@ -136,7 +136,7 @@ It only supports Chinese now, because tool's annotations are too large to transl
 
 
 
-## 开发过程 / Development Process
+## [开发过程](docs/src/Development Process.md) / Development Process
 有空就写写这坨屎山是怎么产生的……毕竟被它折磨了一段时间，不记录一下说不过去。 / To be added later
 
 最开始的想法很朴素嘛：搞个canvas，把数组映射成像素点，用画画的方式，画一点，程序就背后修改一下数组，最后保存，简单！
