@@ -101,13 +101,13 @@ It only supports Chinese now, because tool's annotations are too large to transl
 
 但是加载自定义绘图函数的时候，只能使用源码里import的库，可执行文件没法修改源码，只能使用‌`matplotlib‌`库，无法添加诸如‌`scipy‌`、‌`cartopy‌`等辅助绘图的库。
 
-Videos and images will be added later. If you prefer to read the text version, you can first check out the Pure Text User Guide. Please note that the user guide is currently only available in Chinese.
+Videos and images will be added later. If you prefer to read the text version, you can first check out the [Pure Text User Guide](Chinese_Documentation┃操作说明.md). Please note that the user guide is currently only available in Chinese.
 
 It is recommended to clone the entire project to your local machine. Then, download the `venv.zip` file from the venv folder to your local machine, extract it to the venv folder, and double-click the bat file to run it.
 
 You can also use your own environment by running `MainWindow.py`.
 
-If you prefer a simpler option, you can download the executable file from the release section. Double-click it and wait for about 30 seconds to start.
+If you prefer a simpler option, you can download the executable file from the [release](https://github.com/cat-my-earn/2DArray_LabelAnnot_Tool/releases/tag/v1.0) section. Double-click it and wait for about 30 seconds to start.
 
 However, when loading custom drawing functions, you can only use the libraries imported in the source code. The executable file cannot modify the source code, so you can only use the `matplotlib` library and cannot add libraries such as `scipy` or `cartopy` for auxiliary drawing.
 
