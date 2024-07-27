@@ -93,7 +93,13 @@ It only supports Chinese now, because tool's annotations are too large to transl
 ## 使用教程 / User Guide
 稍后补充视频和图片的，愿意硬啃文本的话可以先看 [纯文本使用说明](Chinese_Documentation┃操作说明.md) / To be added later
 
+建议clone整个项目到本地，然后将venv文件夹里的venv.zip下载到本地，解压到venv文件夹里，双击bat即可运行。
 
+也可以使用自己的环境，运行MainWindow.py即可。
+
+如果不想太麻烦，可以在[release](releases/tag/v1.0)里下载exe可执行文件，双击后等待半分钟即可启动。
+
+但是加载自定义绘图函数的时候，只能使用源码里import的库，可执行文件没法修改源码，只能使用‌`matplotlib‌`库，无法添加诸如‌`scipy‌`、‌`cartopy‌`等辅助绘图的库。
 
 
 
