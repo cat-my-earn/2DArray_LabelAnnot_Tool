@@ -103,6 +103,7 @@ It only supports Chinese now, because tool's annotations are too large to transl
 可以通过查看我开发这个程序时的背景、遇到的问题以及使用它做了什么事情，来判断该程序是否适合您的使用场景。可以点击上方链接查看。
 
 You can assess whether this program fits your use case by reviewing the background, issues encountered, and tasks performed during its development. 
+
 Please click the link to view, but note that this document is in Chinese.
 
 
