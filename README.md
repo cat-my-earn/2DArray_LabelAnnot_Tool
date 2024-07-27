@@ -4,6 +4,7 @@
 
 A tool for pixel data annotation of 2D arrays that generates a mask of the same size as the original array.
 
+![painter-example](https://github.com/user-attachments/assets/dd6b18b6-c7cf-4b22-9892-22f8d77232af)
 
 
 ## 适用范围
