@@ -29,8 +29,8 @@ It only supports Chinese now, because tool's annotations are too large to transl
 - 可以加载多个二维数组，由matplotlib绘制图像，不同图像比较以确定标注类型。
   - Load multiple 2D arrays, plot images with matplotlib, and compare different images to determine annotation types.
 
-- 支持自定义绘图函数，程序将传入二维数组和其他必要参数，由自定义函数绘制出matplotlib图像。
-  - Support custom drawing functions, where the program passes the 2D array and other necessary parameters, and the custom function draws the matplotlib image.
+- 支持自定义绘图函数，程序将传入二维数组和其他必要参数，由自定义函数绘制出`matplotlib`图像。
+  - Support custom drawing functions, where the program passes the 2D array and other necessary parameters, and the custom function draws the `matplotlib` image.
 
 - 支持十字标注线：显示绘图区鼠标位置在其他参考图像上的位置。
   - Support crosshair annotation: display the mouse position in the drawing area on other reference images.
@@ -53,8 +53,8 @@ It only supports Chinese now, because tool's annotations are too large to transl
 - 支持导出参考图（包括消除特定标注区域的、和边缘提取后的参考图）。
   - Support exporting reference images (including those with specific annotated areas removed and those after edge extraction).
 
-- 支持对目录下的文件批量导出参考图（批量对每一个文件用自定义绘图函数绘制出matplotlib图像后导出到对应文件夹）。
-  - Support batch exporting reference images for files in a directory (batch drawing matplotlib images for each file using a custom drawing function and exporting them to the corresponding folder).
+- 支持对目录下的文件批量导出参考图（批量对每一个文件用自定义绘图函数绘制出`matplotlib`图像后导出到对应文件夹）。
+  - Support batch exporting reference images for files in a directory (batch drawing `matplotlib` images for each file using a custom drawing function and exporting them to the corresponding folder).
 
 - 支持对目录下的文件批量预处理（批量对每一个文件按照预设条件生成一个对应的包含“Musk”键和“Musk_nan”键的npz文件）。
   - Support batch preprocessing for files in a directory (batch generating a corresponding npz file with the "Musk" and "Musk_nan" keys for each file according to preset conditions).
@@ -91,17 +91,25 @@ It only supports Chinese now, because tool's annotations are too large to transl
 
 
 ## 使用教程 / User Guide
-稍后补充视频和图片的，愿意硬啃文本的话可以先看 [纯文本使用说明](Chinese_Documentation┃操作说明.md) / To be added later
+稍后补充视频和图片的，愿意硬啃文本的话可以先看 [纯文本使用说明](Chinese_Documentation┃操作说明.md) 
 
-建议clone整个项目到本地，然后将venv文件夹里的venv.zip下载到本地，解压到venv文件夹里，双击bat即可运行。
+建议clone整个项目到本地，然后将venv文件夹里的`venv.zip`下载到本地，解压到venv文件夹里，双击bat即可运行。
 
-也可以使用自己的环境，运行MainWindow.py即可。
+也可以使用自己的环境，运行`MainWindow.py`即可。
 
 如果不想太麻烦，可以在[release](https://github.com/cat-my-earn/2DArray_LabelAnnot_Tool/releases/tag/v1.0)里下载exe可执行文件，双击后等待半分钟即可启动。
 
 但是加载自定义绘图函数的时候，只能使用源码里import的库，可执行文件没法修改源码，只能使用‌`matplotlib‌`库，无法添加诸如‌`scipy‌`、‌`cartopy‌`等辅助绘图的库。
 
+Videos and images will be added later. If you prefer to read the text version, you can first check out the Pure Text User Guide. Please note that the user guide is currently only available in Chinese.
 
+It is recommended to clone the entire project to your local machine. Then, download the `venv.zip` file from the venv folder to your local machine, extract it to the venv folder, and double-click the bat file to run it.
+
+You can also use your own environment by running `MainWindow.py`.
+
+If you prefer a simpler option, you can download the executable file from the release section. Double-click it and wait for about 30 seconds to start.
+
+However, when loading custom drawing functions, you can only use the libraries imported in the source code. The executable file cannot modify the source code, so you can only use the `matplotlib` library and cannot add libraries such as `scipy` or `cartopy` for auxiliary drawing.
 
 
 ## [背景和需求](src/Background%20and%20Needs.md) / Background and Needs
