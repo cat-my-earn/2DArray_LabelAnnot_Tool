@@ -136,7 +136,7 @@ It only supports Chinese now, because tool's annotations are too large to transl
 
 
 
-## [开发过程](docs/src/Development%20Process.md) / Development Process
+## [开发过程](src/Development%20Process.md) / Development Process
 
 有空就写写这坨屎山是怎么产生的……毕竟被它折磨了一段时间，不记录一下说不过去。 / To be added later
 
