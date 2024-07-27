@@ -97,7 +97,7 @@ It only supports Chinese now, because tool's annotations are too large to transl
 
 也可以使用自己的环境，运行MainWindow.py即可。
 
-如果不想太麻烦，可以在[release](releases/tag/v1.0)里下载exe可执行文件，双击后等待半分钟即可启动。
+如果不想太麻烦，可以在[release](https://github.com/cat-my-earn/2DArray_LabelAnnot_Tool/releases/tag/v1.0)里下载exe可执行文件，双击后等待半分钟即可启动。
 
 但是加载自定义绘图函数的时候，只能使用源码里import的库，可执行文件没法修改源码，只能使用‌`matplotlib‌`库，无法添加诸如‌`scipy‌`、‌`cartopy‌`等辅助绘图的库。
 
