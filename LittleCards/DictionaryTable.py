@@ -29,7 +29,6 @@ class DictTableWidget(QWidget):
         self.objectflag = False
         if parent:
             if isinstance(original_dict, str) and hasattr(parentup, original_dict):
-                logger.info(f'从父控件中获取了属性 {original_dict}')
                 self.original_dict = getattr(parentup, original_dict)
                 logger.info(f'从父控件中获取了属性 {original_dict}，值为 {self.original_dict}')
                 self.objectflag = True
