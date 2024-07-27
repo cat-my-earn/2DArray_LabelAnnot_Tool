@@ -1434,6 +1434,7 @@ class FunctionsAll:
         # 使用获取的保存路径保存npz文件
         np.savez(save_path, **save_dict)
         self.上一个处理的文件路径 = save_path
+        self.显示消息框函数("INFORMATION", "保存成功", f"处理后的数据已在保存目录里","顶部")
 
     @报错装饰器
     def 保存修改过后的数据函数(self, 使用的保存数组 = dict(), 正在使用的文件名字 = "", 文件保存路径 = "" , 当前使用的文件路径 = "", 雷达缩写对应名字 = ""):
@@ -1475,7 +1476,7 @@ class FunctionsAll:
                 if not os.path.exists(目录名):
                     os.makedirs(目录名)
                 np.save(文件名, 数组)
-            self.显示消息框函数("seccess", "保存成功", f"已经将处理后的数据保存在【{os.path.dirname(save_path)}】目录下")
+            self.显示消息框函数("INFORMATION", "保存成功", f"已经将处理后的数据保存在【{os.path.dirname(save_path)}】目录下")
         else:
             目录名 = os.path.dirname(save_path)
             if not os.path.exists(目录名):
@@ -1484,7 +1485,7 @@ class FunctionsAll:
                 np.savez(save_path.replace("_已修改", f"┃消去【{需要处理的内容}】_已修改"), **使用的保存数组)
             else:
                 np.savez(save_path, **使用的保存数组)
-            self.显示消息框函数("seccess", "保存成功", f"已经将处理后的数据保存在【{os.path.dirname(save_path)}】目录下")
+            self.显示消息框函数("INFORMATION", "保存成功", f"已经将处理后的数据保存在【{os.path.dirname(save_path)}】目录下")
 
 
 
