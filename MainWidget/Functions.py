@@ -478,7 +478,7 @@ class FunctionsAll:
         self.是否需要规整数据 = not self.是否需要规整数据
         self.是否需要规整数据 = not self.是否需要规整数据
 
-        self.webview_base ,self.webviews = self.添加网页容器(num_groups=self.显示参考图的行数, parent=self.Main.ui, parent2=self.Main)
+        self.webview_base ,self.webviews ,self.connect_onces = self.添加网页容器(num_groups=self.显示参考图的行数, parent=self.Main.ui, parent2=self.Main)
         self.预启动加载()
         self.选择文件函数()
         self.显示原始数组参考图()
@@ -1285,11 +1285,13 @@ class FunctionsAll:
         if self.正在使用的文件索引 > 0:
             self.更新文件相关配置项(-1)
         else:
-            if self.正在使用的页数  > 1:
-                # 设置选中最后一个文件
+            if self.正在使用的页数 > 1:
+                # 展示前一页的文件
+                self.展示文件函数(self.文件夹路径, self.正在使用的页数 - 1, False)
+                # 设置选中上一页的最后一个文件
                 self.更新文件相关配置项(self.page_size - 1, True)
-                self.展示文件函数(self.文件夹路径, self.正在使用的页数  - 1, False)
         self.选择文件(self.正在使用的文件索引)
+
 
     def 下一个文件(self):
         if self.正在使用的文件索引 < len(self.Main.filesnames) - 1:
