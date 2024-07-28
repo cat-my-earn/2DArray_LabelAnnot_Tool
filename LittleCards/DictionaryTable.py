@@ -303,7 +303,7 @@ class DictTableWidget(QWidget):
         
         # 在新行的最后列添加删除按钮
         delete_button = TransparentPushButton(FIF.DELETE,"删除")
-        delete_button.clicked.connect(lambda _, idx=index: self.delete_row(idx))
+        delete_button.clicked.connect(lambda _, idx=default_index: self.delete_row(idx))
         self.table.setCellWidget(self.table.rowCount() - 1, 3, delete_button)
 
         self.item_changed_slot = self.table.itemChanged.connect(self.update_dict_from_table)
